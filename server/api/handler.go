@@ -9,7 +9,8 @@ import (
 // AvailabilityHandler handles GET and POST requests for user availability.
 func AvailabilityHandler(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == "GET" {
+		switch r.Method {
+		case "GET":
 			userID := r.URL.Query().Get("user_id")
 			teamID := r.URL.Query().Get("team_id")
 			var count int
@@ -45,7 +46,7 @@ func AvailabilityHandler(db *sql.DB) http.HandlerFunc {
 			}
 			w.Header().Set("Content-Type", "application/json")
 			json.NewEncoder(w).Encode(slots)
-		} else if r.Method == "POST" {
+		case "POST":
 			var req struct {
 				UserID    int    `json:"user_id"`
 				TeamID    int    `json:"team_id"`
@@ -79,7 +80,7 @@ func AvailabilityHandler(db *sql.DB) http.HandlerFunc {
 				return
 			}
 			w.WriteHeader(http.StatusOK)
-		} else {
+		default:
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
 	}
@@ -87,7 +88,8 @@ func AvailabilityHandler(db *sql.DB) http.HandlerFunc {
 
 func TeamHandler(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == "GET" {
+		switch r.Method {
+		case "GET":
 			// Retrieve team information based on TeamID or TeamName
 			var req struct {
 				TeamID   int    `json:"team_id"`
@@ -146,7 +148,7 @@ func TeamHandler(db *sql.DB) http.HandlerFunc {
 				http.Error(w, "Team ID or Team Name must be provided", http.StatusBadRequest)
 				return
 			}
-		} else if r.Method == "POST" {
+		case "POST":
 			// Create a new team
 			var req struct {
 				Name string `json:"name"`
@@ -168,7 +170,7 @@ func TeamHandler(db *sql.DB) http.HandlerFunc {
 				return
 			}
 			w.WriteHeader(http.StatusCreated)
-		} else if r.Method == "DELETE" {
+		case "DELETE":
 			var req struct {
 				TeamID int `json:"team_id"`
 			}
@@ -191,7 +193,7 @@ func TeamHandler(db *sql.DB) http.HandlerFunc {
 				return
 			}
 			w.WriteHeader(http.StatusNoContent)
-		} else if r.Method == "PUT" {
+		case "PUT":
 			// Update an existing team
 			var req struct {
 				TeamID   int    `json:"team_id"`
@@ -216,7 +218,7 @@ func TeamHandler(db *sql.DB) http.HandlerFunc {
 				return
 			}
 			w.WriteHeader(http.StatusOK)
-		} else {
+		default:
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
 	}
@@ -224,7 +226,8 @@ func TeamHandler(db *sql.DB) http.HandlerFunc {
 
 func PlayerHandler(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == "GET" {
+		switch r.Method {
+		case "GET":
 			// Retrieve user username based on UserID
 			var req struct {
 				UserID string `json:"user_id"`
@@ -250,7 +253,7 @@ func PlayerHandler(db *sql.DB) http.HandlerFunc {
 			}
 			w.Header().Set("Content-Type", "application/json")
 			json.NewEncoder(w).Encode(map[string]string{"username": username})
-		} else if r.Method == "DELETE" {
+		case "DELETE":
 			var req struct {
 				UserID int `json:"user_id"`
 			}
@@ -287,7 +290,7 @@ func PlayerHandler(db *sql.DB) http.HandlerFunc {
 				return
 			}
 			w.WriteHeader(http.StatusNoContent)
-		} else {
+		default:
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
 	}
@@ -295,7 +298,8 @@ func PlayerHandler(db *sql.DB) http.HandlerFunc {
 
 func TeamMembersHandler(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == "GET" {
+		switch r.Method {
+		case "GET":
 			var req struct {
 				TeamID int `json:"team_id"`
 			}
@@ -326,7 +330,7 @@ func TeamMembersHandler(db *sql.DB) http.HandlerFunc {
 			}
 			w.Header().Set("Content-Type", "application/json")
 			json.NewEncoder(w).Encode(members)
-		} else if r.Method == "POST" {
+		case "POST":
 			var req struct {
 				UserID int `json:"user_id"`
 				TeamID int `json:"team_id"`
@@ -358,7 +362,7 @@ func TeamMembersHandler(db *sql.DB) http.HandlerFunc {
 				return
 			}
 			w.WriteHeader(http.StatusCreated)
-		} else if r.Method == "DELETE" {
+		case "DELETE":
 			var req struct {
 				UserID int `json:"user_id"`
 				TeamID int `json:"team_id"`
@@ -379,14 +383,15 @@ func TeamMembersHandler(db *sql.DB) http.HandlerFunc {
 				return
 			}
 			w.WriteHeader(http.StatusNoContent)
-		} else {
+		default:
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
 	}
 }
 func TimeSlotsHandler(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == "GET" {
+		switch r.Method {
+		case "GET":
 			var req struct {
 				TeamID int `json:"team_id"`
 			}
@@ -411,7 +416,7 @@ func TimeSlotsHandler(db *sql.DB) http.HandlerFunc {
 			}
 			w.Header().Set("Content-Type", "application/json")
 			json.NewEncoder(w).Encode(slots)
-		} else if r.Method == "POST" {
+		case "POST":
 			var req struct {
 				Day    string `json:"day"`
 				Time   string `json:"time"`
@@ -431,7 +436,7 @@ func TimeSlotsHandler(db *sql.DB) http.HandlerFunc {
 				return
 			}
 			w.WriteHeader(http.StatusCreated)
-		} else if r.Method == "DELETE" {
+		case "DELETE":
 			var req struct {
 				Day    string `json:"day"`
 				Time   string `json:"time"`
@@ -451,7 +456,7 @@ func TimeSlotsHandler(db *sql.DB) http.HandlerFunc {
 				return
 			}
 			w.WriteHeader(http.StatusNoContent)
-		} else if r.Method == "PUT" {
+		case "PUT":
 			var req struct {
 				Day     string `json:"day"`
 				Time    string `json:"time"`
@@ -473,7 +478,7 @@ func TimeSlotsHandler(db *sql.DB) http.HandlerFunc {
 				return
 			}
 			w.WriteHeader(http.StatusOK)
-		} else {
+		default:
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
 	}
