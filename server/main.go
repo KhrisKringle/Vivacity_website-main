@@ -232,35 +232,35 @@ func main() {
 		})
 	})
 
-	// Routes for Kingpins
-	r.Route("/kingpins", func(r chi.Router) {
-		r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-			http.ServeFile(w, r, "../static/Kingpins/kingpins.html")
-		})
-		r.Get("/schedual", func(w http.ResponseWriter, r *http.Request) {
-			http.ServeFile(w, r, "../static/Kingpins/kingpins_schedual.html")
-		})
-	})
+	// // Routes for Kingpins
+	// r.Route("/kingpins", func(r chi.Router) {
+	// 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
+	// 		http.ServeFile(w, r, "../static/Kingpins/kingpins.html")
+	// 	})
+	// 	r.Get("/schedual", func(w http.ResponseWriter, r *http.Request) {
+	// 		http.ServeFile(w, r, "../static/Kingpins/kingpins_schedual.html")
+	// 	})
+	// })
 
-	// Routes for Vivacity
-	r.Route("/vivacity", func(r chi.Router) {
-		r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-			http.ServeFile(w, r, "../static/Vivacity/vivacity.html")
-		})
-		r.Get("/schedual", func(w http.ResponseWriter, r *http.Request) {
-			http.ServeFile(w, r, "../static/Vivacity/vivacity_schedual.html")
-		})
-	})
+	// // Routes for Vivacity
+	// r.Route("/vivacity", func(r chi.Router) {
+	// 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
+	// 		http.ServeFile(w, r, "../static/Vivacity/vivacity.html")
+	// 	})
+	// 	r.Get("/schedual", func(w http.ResponseWriter, r *http.Request) {
+	// 		http.ServeFile(w, r, "../static/Vivacity/vivacity_schedual.html")
+	// 	})
+	// })
 
-	// Routes for Vagrants
-	r.Route("/vagrants", func(r chi.Router) {
-		r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-			http.ServeFile(w, r, "../static/Vagrants/vagrants.html")
-		})
-		r.Get("/schedual", func(w http.ResponseWriter, r *http.Request) {
-			http.ServeFile(w, r, "../static/Vagrants/vagrants_schedual.html")
-		})
-	})
+	// // Routes for Vagrants
+	// r.Route("/vagrants", func(r chi.Router) {
+	// 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
+	// 		http.ServeFile(w, r, "../static/Vagrants/vagrants.html")
+	// 	})
+	// 	r.Get("/schedual", func(w http.ResponseWriter, r *http.Request) {
+	// 		http.ServeFile(w, r, "../static/Vagrants/vagrants_schedual.html")
+	// 	})
+	// })
 
 	// Start server
 	http.ListenAndServe(":8080", r)
