@@ -1,10 +1,10 @@
 # Vivacity_website
 
-Schedule Manager API and Frontend Documentation
-This document outlines the backend API endpoints and frontend requirements for the Schedule Manager, a team-based scheduling application similar to When2Meet. The app allows organizations to manage teams, players, events, and availability, with a focus on scheduling team activities. The backend is built with Go and PostgreSQL, running in a Dockerized environment, while the frontend is under development and will use server-side rendering (SSR) for key pages.
-Backend API
+##Schedule Manager API and Frontend Documentation
+This document outlines the backend API endpoints and frontend requirements for the Schedule Manager, a team-based scheduling application similar to When2Meet. The app allows organizations to manage teams, players, events, and availability, with a focus on scheduling team activities. The backend is built with Go and PostgreSQL, running in a Dockerized environment, while the frontend is under development.
+##Backend API\n
 The backend provides RESTful endpoints for managing Teams, Players, and Events, with planned integrations for Discord and potential email notifications. All endpoints are prefixed with /api.
-Teams
+###Teams
 Endpoints for creating, managing, and retrieving team information.
 
 POST /api/teams
