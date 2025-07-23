@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"net/http"
+	"strconv"
 )
 
 // AvailabilityHandler handles GET and POST requests for user availability.
@@ -89,65 +90,6 @@ func AvailabilityHandler(db *sql.DB) http.HandlerFunc {
 func TeamHandler(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
-		case "GET":
-			// Retrieve team information based on TeamID or TeamName
-			var req struct {
-				TeamID   int    `json:"team_id"`
-				TeamName string `json:"team_name"`
-			}
-			// Decode the request body
-			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-				http.Error(w, "Invalid input", http.StatusBadRequest)
-				return
-			}
-			// Validate that at least one of TeamID or TeamName is provided
-			if req.TeamID == 0 && req.TeamName == "" {
-				row := db.QueryRow("SELECT id, name FROM teams")
-				var id int
-				var name string
-				if err := row.Scan(&id, &name); err != nil {
-					if err == sql.ErrNoRows {
-						http.Error(w, "No teams found", http.StatusNotFound)
-						return
-					}
-					http.Error(w, err.Error(), http.StatusInternalServerError)
-					return
-				}
-				w.Header().Set("Content-Type", "application/json")
-				json.NewEncoder(w).Encode(map[string]any{"id": id, "name": name})
-				return
-			}
-			if req.TeamID != 0 {
-				row := db.QueryRow("SELECT name FROM teams WHERE id = $1", req.TeamID)
-				var name string
-				if err := row.Scan(&name); err != nil {
-					if err == sql.ErrNoRows {
-						http.Error(w, "Team not found", http.StatusNotFound)
-						return
-					}
-					http.Error(w, err.Error(), http.StatusInternalServerError)
-					return
-				}
-				w.Header().Set("Content-Type", "application/json")
-				json.NewEncoder(w).Encode(map[string]any{"id": req.TeamID, "name": name})
-			} else if req.TeamName != "" {
-				row := db.QueryRow("SELECT id FROM teams WHERE name = $1", req.TeamName)
-				var id int
-				if err := row.Scan(&id); err != nil {
-					if err == sql.ErrNoRows {
-						http.Error(w, "Team not found", http.StatusNotFound)
-						return
-					}
-					http.Error(w, err.Error(), http.StatusInternalServerError)
-					return
-				}
-				w.Header().Set("Content-Type", "application/json")
-				json.NewEncoder(w).Encode(map[string]any{"id": id, "name": req.TeamName})
-			} else {
-				// Error Handling
-				http.Error(w, "Team ID or Team Name must be provided", http.StatusBadRequest)
-				return
-			}
 		case "POST":
 			// Create a new team
 			var req struct {
@@ -229,19 +171,19 @@ func PlayerHandler(db *sql.DB) http.HandlerFunc {
 		switch r.Method {
 		case "GET":
 			// Retrieve user username based on UserID
-			var req struct {
-				UserID string `json:"user_id"`
-			}
-			// Decode the request body
-			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-				http.Error(w, "Invalid input", http.StatusBadRequest)
-				return
-			}
-			if req.UserID == "" {
+			userIDStr := r.URL.Query().Get("user_id")
+			if userIDStr == "" {
 				http.Error(w, "User ID is required", http.StatusBadRequest)
 				return
 			}
-			row := db.QueryRow("SELECT username FROM users WHERE user_id = $1", req.UserID)
+
+			// Convert the user ID from string to integer
+			userID, err := strconv.Atoi(userIDStr)
+			if err != nil {
+				http.Error(w, "Invalid User ID", http.StatusBadRequest)
+				return
+			}
+			row := db.QueryRow("SELECT username FROM users WHERE user_id = $1", userID)
 			var username string
 			if err := row.Scan(&username); err != nil {
 				if err == sql.ErrNoRows {
@@ -300,23 +242,25 @@ func TeamMembersHandler(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case "GET":
-			var req struct {
-				TeamID int `json:"team_id"`
-			}
-			// Decode the request body
-			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-				http.Error(w, "Invalid input", http.StatusBadRequest)
-				return
-			}
-			if req.TeamID == 0 {
+			teamIDStr := r.URL.Query().Get("team_id")
+			if teamIDStr == "" {
 				http.Error(w, "Team ID is required", http.StatusBadRequest)
 				return
 			}
+
+			// Convert the team ID from string to integer
+			teamID, err := strconv.Atoi(teamIDStr)
+			if err != nil {
+				http.Error(w, "Invalid Team ID", http.StatusBadRequest)
+				return
+			}
+
+			// Grab the team members from the database
 			rows, err := db.Query(`
 				SELECT u.user_id, u.username 
 				FROM users u
 				JOIN team_members tm ON u.id = tm.user_id
-				WHERE tm.team_id = $1`, req.TeamID)
+				WHERE tm.team_id = $1`, teamID)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return

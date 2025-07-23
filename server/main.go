@@ -145,7 +145,6 @@ func main() {
 
 	// Teams API
 	r.Route("/api/teams", func(r chi.Router) {
-		r.Get("/", api.TeamHandler(db))
 		r.Post("/", api.TeamHandler(db))
 		// Team-specific routes
 		r.Route("/{teamID}", func(r chi.Router) {
@@ -161,10 +160,16 @@ func main() {
 				})
 			})
 			// Team-specific handlers
-			r.Get("/", api.TeamHandler(db))
 			r.Delete("/", api.TeamHandler(db))
 			r.Put("/", api.TeamHandler(db))
 		})
+	})
+
+	// Team Members API
+	r.Route("/api/team_members", func(r chi.Router) {
+		r.Get("/", api.TeamMembersHandler(db))
+		r.Post("/", api.TeamMembersHandler(db))
+		r.Delete("/", api.TeamMembersHandler(db))
 	})
 
 	// Players API
