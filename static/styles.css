@@ -1,0 +1,15 @@
+body {
+  font-family: 'Orbitron', sans-serif;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  color: white;
+}
+.nav-button {
+  background-color: #00ffea;
+  color: #1a1a2e;
+  padding: 0.5rem 1rem;
+  border-radius: 0.25rem;
+  transition: background-color 0.2s;
+}
+.nav-button:hover {
+  background-color: #00ccbb;
+}

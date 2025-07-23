@@ -1,0 +1,31 @@
+body {
+      font-family: 'Orbitron', sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      color: white;
+    }
+    .team-button {
+      background-color: #2a2a4e;
+      padding: 1rem;
+      border-radius: 0.5rem;
+      box-shadow: 0 0 10px #00ffea;
+      transition: transform 0.2s;
+      text-align: center;
+      display: block;
+    }
+    .team-button:hover {
+      transform: scale(1.05);
+      background-color: #3a3a5e;
+    }
+    .nav-button {
+      background-color: #00ffea;
+      color: #1a1a2e;
+      padding: 0.5rem 1rem;
+      border-radius: 0.25rem;
+      transition: background-color 0.2s;
+    }
+    .nav-button:hover {
+      background-color: #00ccbb;
+    }
+    .league-section {
+      margin-bottom: 2rem;
+    }
