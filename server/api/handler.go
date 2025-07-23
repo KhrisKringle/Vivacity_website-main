@@ -11,7 +11,7 @@ import (
 func AvailabilityHandler(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
-		case "GET":
+		case http.MethodGet:
 			userID := r.URL.Query().Get("user_id")
 			teamID := r.URL.Query().Get("team_id")
 			var count int
@@ -47,7 +47,7 @@ func AvailabilityHandler(db *sql.DB) http.HandlerFunc {
 			}
 			w.Header().Set("Content-Type", "application/json")
 			json.NewEncoder(w).Encode(slots)
-		case "POST":
+		case http.MethodPost:
 			var req struct {
 				UserID    int    `json:"user_id"`
 				TeamID    int    `json:"team_id"`
@@ -90,7 +90,7 @@ func AvailabilityHandler(db *sql.DB) http.HandlerFunc {
 func TeamHandler(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
-		case "POST":
+		case http.MethodPost:
 			// Create a new team
 			var req struct {
 				Name string `json:"name"`
@@ -112,7 +112,7 @@ func TeamHandler(db *sql.DB) http.HandlerFunc {
 				return
 			}
 			w.WriteHeader(http.StatusCreated)
-		case "DELETE":
+		case http.MethodDelete:
 			var req struct {
 				TeamID int `json:"team_id"`
 			}
@@ -135,7 +135,7 @@ func TeamHandler(db *sql.DB) http.HandlerFunc {
 				return
 			}
 			w.WriteHeader(http.StatusNoContent)
-		case "PUT":
+		case http.MethodPut:
 			// Update an existing team
 			var req struct {
 				TeamID   int    `json:"team_id"`
@@ -169,7 +169,7 @@ func TeamHandler(db *sql.DB) http.HandlerFunc {
 func PlayerHandler(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
-		case "GET":
+		case http.MethodGet:
 			// Retrieve user username based on UserID
 			userIDStr := r.URL.Query().Get("user_id")
 			if userIDStr == "" {
@@ -195,7 +195,7 @@ func PlayerHandler(db *sql.DB) http.HandlerFunc {
 			}
 			w.Header().Set("Content-Type", "application/json")
 			json.NewEncoder(w).Encode(map[string]string{"username": username})
-		case "DELETE":
+		case http.MethodDelete:
 			var req struct {
 				UserID int `json:"user_id"`
 			}
@@ -241,7 +241,7 @@ func PlayerHandler(db *sql.DB) http.HandlerFunc {
 func TeamMembersHandler(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
-		case "GET":
+		case http.MethodGet:
 			teamIDStr := r.URL.Query().Get("team_id")
 			if teamIDStr == "" {
 				http.Error(w, "Team ID is required", http.StatusBadRequest)
@@ -257,7 +257,7 @@ func TeamMembersHandler(db *sql.DB) http.HandlerFunc {
 
 			// Grab the team members from the database
 			rows, err := db.Query(`
-				SELECT u.user_id, u.username 
+				SELECT u.user_id, u.username, tm.role 
 				FROM users u
 				JOIN team_members tm ON u.id = tm.user_id
 				WHERE tm.team_id = $1`, teamID)
@@ -270,7 +270,8 @@ func TeamMembersHandler(db *sql.DB) http.HandlerFunc {
 			for rows.Next() {
 				var userID int
 				var username string
-				err := rows.Scan(&userID, &username)
+				var role string
+				err := rows.Scan(&userID, &username, &role)
 				if err != nil {
 					http.Error(w, err.Error(), http.StatusInternalServerError)
 					return
@@ -278,14 +279,16 @@ func TeamMembersHandler(db *sql.DB) http.HandlerFunc {
 				members = append(members, map[string]any{
 					"user_id":  userID,
 					"username": username,
+					"role":     role,
 				})
 			}
 			w.Header().Set("Content-Type", "application/json")
 			json.NewEncoder(w).Encode(members)
-		case "POST":
+		case http.MethodPost:
 			var req struct {
-				UserID int `json:"user_id"`
-				TeamID int `json:"team_id"`
+				UserID int    `json:"user_id"`
+				TeamID int    `json:"team_id"`
+				Role   string `json:"role"`
 			}
 			// Decode the request body
 			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -304,17 +307,18 @@ func TeamMembersHandler(db *sql.DB) http.HandlerFunc {
 				return
 			}
 			if count > 0 {
-				http.Error(w, "User is already a member of the team", http.StatusBadRequest)
+				http.Error(w, "User is already a member of this team", http.StatusBadRequest)
 				return
 			}
 			// Insert the user into the team_members table
-			_, err = db.Exec("INSERT INTO team_members (user_id, team_id) VALUES ($1, $2)", req.UserID, req.TeamID)
+			_, err = db.Exec("INSERT INTO team_members (user_id, team_id, role) VALUES ($1, $2, $3)", req.UserID, req.TeamID, req.Role)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
 			w.WriteHeader(http.StatusCreated)
-		case "DELETE":
+
+		case http.MethodDelete:
 			var req struct {
 				UserID int `json:"user_id"`
 				TeamID int `json:"team_id"`
@@ -335,6 +339,28 @@ func TeamMembersHandler(db *sql.DB) http.HandlerFunc {
 				return
 			}
 			w.WriteHeader(http.StatusNoContent)
+		case http.MethodPut:
+			var req struct {
+				UserID int    `json:"user_id"`
+				TeamID int    `json:"team_id"`
+				Role   string `json:"role"`
+			}
+			// Decode the request body
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				http.Error(w, "Invalid input", http.StatusBadRequest)
+				return
+			}
+			if req.UserID == 0 || req.TeamID == 0 {
+				http.Error(w, "User ID and Team ID are required", http.StatusBadRequest)
+				return
+			}
+			// Update the user's role in the team_members table
+			_, err := db.Exec("UPDATE team_members SET role = $1 WHERE user_id = $2 AND team_id = $3", req.Role, req.UserID, req.TeamID)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			w.WriteHeader(http.StatusOK)
 		default:
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
@@ -343,7 +369,7 @@ func TeamMembersHandler(db *sql.DB) http.HandlerFunc {
 func TimeSlotsHandler(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
-		case "GET":
+		case http.MethodGet:
 			var req struct {
 				TeamID int `json:"team_id"`
 			}
@@ -368,7 +394,7 @@ func TimeSlotsHandler(db *sql.DB) http.HandlerFunc {
 			}
 			w.Header().Set("Content-Type", "application/json")
 			json.NewEncoder(w).Encode(slots)
-		case "POST":
+		case http.MethodPost:
 			var req struct {
 				Day    string `json:"day"`
 				Time   string `json:"time"`
@@ -388,7 +414,7 @@ func TimeSlotsHandler(db *sql.DB) http.HandlerFunc {
 				return
 			}
 			w.WriteHeader(http.StatusCreated)
-		case "DELETE":
+		case http.MethodDelete:
 			var req struct {
 				Day    string `json:"day"`
 				Time   string `json:"time"`
@@ -408,7 +434,7 @@ func TimeSlotsHandler(db *sql.DB) http.HandlerFunc {
 				return
 			}
 			w.WriteHeader(http.StatusNoContent)
-		case "PUT":
+		case http.MethodPut:
 			var req struct {
 				Day     string `json:"day"`
 				Time    string `json:"time"`

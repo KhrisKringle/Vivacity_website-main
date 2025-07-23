@@ -57,12 +57,13 @@ func SetupDB(db *sql.DB) error {
 	// Create team_members table
 	_, err = db.Exec(`
 		CREATE TABLE IF NOT EXISTS team_members (
-			user_id INT NOT NULL,
-			team_id INT NOT NULL,
-			PRIMARY KEY (user_id, team_id),
-			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-			FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE
-		);
+        user_id INT NOT NULL,
+        team_id INT NOT NULL,
+        role ENUM('Tank', 'Flex DPS', 'Hitscan', 'Main Support', 'Flex Support', 'Substitute') NOT NULL,
+        PRIMARY KEY (user_id, team_id),
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE
+    );
 	`)
 	if err != nil {
 		return fmt.Errorf("error creating team_members table: %v", err)
