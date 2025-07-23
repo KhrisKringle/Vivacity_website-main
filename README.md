@@ -137,14 +137,13 @@ Description: Get details for a specific player.
 
 
 
-PUT /api/players/{player_id}
+### PUT /api/players/{player_id}
 
 Description: Update a player’s details.
+<pre style='font-size: 1.25rem; line-height: 1.25;'>
 Parameters:
 player_id: Player identifier (path parameter).
 
 
 Request Body:
-
-
-
+</pre>
