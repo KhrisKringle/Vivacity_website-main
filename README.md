@@ -88,7 +88,7 @@ team_id: Team identifier (path parameter).
 ## Players
   Endpoints for managing players, their details, and availability.
 
-POST /api/players
+### POST /api/players
 
 Description: Create a new player and assign them to a team.
 <pre style='font-size: 1.25rem; line-height: 1.25;'>
@@ -106,36 +106,33 @@ Description: Create a new player and assign them to a team.
 
 
 
-GET /api/players
-
+### GET /api/players
 Description: List all players in the organization.
-Response:[
-  {"player_id": 1, "name": "John", "battletag": "John#1234", "position": "Leader", "team_id": 1}
-]
+<pre style='font-size: 1.25rem; line-height: 1.25;'>
+  Response:[
+    {"player_id": 1, "name": "John", "battletag": "John#1234", "position": "Leader", "team_id": 1}
+  ]
+</pre>
+  - Example:curl http://localhost:8080/api/players
 
-
-Example:curl http://localhost:8080/api/players
-
-
-
-
-GET /api/players/{player_id}
+### GET /api/players/{player_id}
 
 Description: Get details for a specific player.
-Parameters:
-player_id: Player identifier (path parameter).
+<pre style='font-size: 1.25rem; line-height: 1.25;'>
+  Parameters:
+  player_id: Player identifier (path parameter).
 
 
-Response:{
-  "player_id": 1,
-  "team_id": 1,
-  "name": "John",
-  "battletag": "John#1234",
-  "position": "Leader"
-}
+  Response:{
+    "player_id": 1,
+    "team_id": 1,
+    "name": "John",
+    "battletag": "John#1234",
+    "position": "Leader"
+  }
+</pre>
 
-
-Example:curl http://localhost:8080/api/players/1
+  - Example:curl http://localhost:8080/api/players/1
 
 
 
