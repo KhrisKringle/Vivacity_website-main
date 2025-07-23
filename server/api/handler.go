@@ -312,21 +312,29 @@ func TeamMembersHandler(db *sql.DB) http.HandlerFunc {
 				http.Error(w, "Team ID is required", http.StatusBadRequest)
 				return
 			}
-			rows, err := db.Query("SELECT user_id FROM team_members WHERE team_id = $1", req.TeamID)
+			rows, err := db.Query(`
+				SELECT u.user_id, u.username 
+				FROM users u
+				JOIN team_members tm ON u.id = tm.user_id
+				WHERE tm.team_id = $1`, req.TeamID)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
 			defer rows.Close()
-			var members []int
+			var members []map[string]any
 			for rows.Next() {
 				var userID int
-				err := rows.Scan(&userID)
+				var username string
+				err := rows.Scan(&userID, &username)
 				if err != nil {
 					http.Error(w, err.Error(), http.StatusInternalServerError)
 					return
 				}
-				members = append(members, userID)
+				members = append(members, map[string]any{
+					"user_id":  userID,
+					"username": username,
+				})
 			}
 			w.Header().Set("Content-Type", "application/json")
 			json.NewEncoder(w).Encode(members)

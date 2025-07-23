@@ -3,25 +3,26 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Vivacity eSports</title>
+  <title>Vivacity eSports - Team Profile</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="index_styles.css">
+  <link rel="stylesheet" href="team_page.css">
 </head>
 <body class="min-h-screen flex flex-col items-center p-4">
   <nav class="w-full max-w-6xl flex justify-between items-center mb-8">
     <h1 class="text-4xl font-bold text-orange-500">Vivacity eSports</h1>
     <div class="space-x-4">
       <a id="profileButton" href="#" class="nav-button hidden">Profile</a>
-      <a id="teamsButton" href="/teams" class="nav-button">Teams</a>
+      <a href="/" class="nav-button">Home</a>
+      <a href="/teams" class="nav-button">Teams</a>
       <a id="authButton" href="/login" class="nav-button">Login</a>
     </div>
   </nav>
-  <div class="text-center max-w-2xl">
-    <h2 class="text-2xl font-bold mb-4 text-orange-500">Welcome to Vivacity eSports</h2>
-    <p class="text-lg text-cyan-400">Check out our teams, and join our community!</p>
+  <div class="max-w-6xl w-full text-center">
+    <h2 id="teamName" class="text-3xl font-bold mb-6 text-orange-500">Loading Team...</h2>
+    <h3 class="text-xl font-bold mb-4 text-orange-500">Players</h3>
+    <div id="playersGrid" class="grid grid-cols-1 md:grid-cols-3 gap-6"></div>
   </div>
-
-  <script src="index.js"></script>
+  <script src="team_page.js"></script>
 </body>
 </html>
