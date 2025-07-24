@@ -225,9 +225,14 @@ func main() {
 		http.ServeFile(w, r, "../static/Teams/teams.html")
 	})
 
+	// This route serves the team profile page
+	r.Get("/team-profile", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "../static/TeamProfilePage/team_page.html")
+	})
+
 	// Routes for Profile
 	r.Route("/profile", func(r chi.Router) {
-		r.Get("/{UserID}", func(w http.ResponseWriter, r *http.Request) {
+		r.Get("/{user_id}", func(w http.ResponseWriter, r *http.Request) {
 			user_account.ProfileHandler(w, r, store, db)
 		})
 	})
