@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"strings"
 )
 
 // AvailabilityHandler handles GET and POST requests for user availability.
@@ -90,6 +91,63 @@ func AvailabilityHandler(db *sql.DB) http.HandlerFunc {
 func TeamHandler(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
+		case http.MethodGet:
+			// Extract the team ID from the URL path, e.g., "/api/teams/1"
+			teamIDStr := strings.TrimPrefix(r.URL.Path, "/api/teams/")
+			teamID, err := strconv.Atoi(teamIDStr)
+			if err != nil {
+				http.Error(w, "Invalid team ID provided in URL", http.StatusBadRequest)
+				return
+			}
+
+			// --- Step 1: Fetch the team's basic details ---
+			var team Team
+			err = db.QueryRow("SELECT id, name FROM teams WHERE id = $1", teamID).Scan(&team.ID, &team.Name)
+			if err != nil {
+				// If no team is found, return a 404
+				if err == sql.ErrNoRows {
+					http.Error(w, "Team not found", http.StatusNotFound)
+					return
+				}
+				// For any other database error, return a 500
+				http.Error(w, "Database error fetching team", http.StatusInternalServerError)
+				return
+			}
+
+			// --- Step 2: Fetch the list of members for that team ---
+			rows, err := db.Query(`
+            SELECT u.id, u.username, tm.role
+            FROM users u
+            JOIN team_members tm ON u.id = tm.user_id
+            WHERE tm.team_id = $1`, teamID)
+			if err != nil {
+				http.Error(w, "Database error fetching team members", http.StatusInternalServerError)
+				return
+			}
+			defer rows.Close()
+
+			var members []TeamMember
+			for rows.Next() {
+				var member TeamMember
+				if err := rows.Scan(&member.ID, &member.Username, &member.Role); err != nil {
+					http.Error(w, "Error scanning team member data", http.StatusInternalServerError)
+					return
+				}
+				members = append(members, member)
+			}
+
+			// --- Step 3: Combine team details and members into a single response ---
+			fullTeamProfile := struct {
+				Team
+				Members []TeamMember `json:"members"`
+			}{
+				Team:    team,
+				Members: members,
+			}
+
+			// --- Step 4: Send the JSON response ---
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(fullTeamProfile)
 		case http.MethodPost:
 			// Create a new team
 			var req struct {

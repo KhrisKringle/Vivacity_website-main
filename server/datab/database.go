@@ -44,9 +44,7 @@ func SetupDB(db *sql.DB) error {
 		id SERIAL PRIMARY KEY,
 		username VARCHAR(255) NOT NULL,
 		user_id INT NOT NULL,
-		team_id INT,
-		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-		FOREIGN KEY (team_id) REFERENCES teams(id)
+		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 	);`
 
 	_, err = db.Exec(createUsersTable)
@@ -59,7 +57,7 @@ func SetupDB(db *sql.DB) error {
 		CREATE TABLE IF NOT EXISTS team_members (
         user_id INT NOT NULL,
         team_id INT NOT NULL,
-        role ENUM('Tank', 'Flex DPS', 'Hitscan', 'Main Support', 'Flex Support', 'Substitute') NOT NULL,
+        role VARCHAR(255) NOT NULL,
         PRIMARY KEY (user_id, team_id),
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
         FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE

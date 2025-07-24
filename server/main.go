@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 	"strconv"
 
 	"Vivacity_website/server/api"
@@ -17,9 +16,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/gorilla/sessions"
 
-	"github.com/markbates/goth"
 	"github.com/markbates/goth/gothic"
-	"github.com/markbates/goth/providers/battlenet"
 )
 
 var (
@@ -27,13 +24,13 @@ var (
 	store            = sessions.NewCookieStore([]byte(sessionSecret))
 )
 
-func getBlizzardSecret() string {
-	secret := os.Getenv("BLIZZARD_CLIENT_SECRET")
-	if secret == "" {
-		log.Fatal("BLIZZARD_CLIENT_SECRET environment variable not set")
-	}
-	return secret
-}
+// func getBlizzardSecret() string {
+// 	secret := os.Getenv("BLIZZARD_CLIENT_SECRET")
+// 	if secret == "" {
+// 		log.Fatal("BLIZZARD_CLIENT_SECRET environment variable not set")
+// 	}
+// 	return secret
+// }
 
 func main() {
 	// Connect to PostgreSQL
@@ -65,9 +62,9 @@ func main() {
 	log.Println("Session store configured!")
 
 	// Configure Gothic with Blizzard as the provider
-	goth.UseProviders(
-		battlenet.New("a54315d3ec30453f9e58d1173caa05f6", getBlizzardSecret(), "http://192.168.1.234:8080/auth/callback/battlenet", "us"), // Adjust region as needed
-	)
+	// goth.UseProviders(
+	// 	battlenet.New("a54315d3ec30453f9e58d1173caa05f6", getBlizzardSecret(), "http://192.168.1.234:8080/auth/callback/battlenet", "us"), // Adjust region as needed
+	// )
 
 	r := chi.NewRouter()
 
@@ -144,7 +141,7 @@ func main() {
 	})
 
 	// Teams API
-	r.Route("/api/teams", func(r chi.Router) {
+	r.Route("/api/teams/", func(r chi.Router) {
 		r.Post("/", api.TeamHandler(db))
 		// Team-specific routes
 		r.Route("/{teamID}", func(r chi.Router) {
@@ -160,26 +157,24 @@ func main() {
 				})
 			})
 			// Team-specific handlers
+			r.Get("/", api.TeamHandler(db)) // Get team by ID
 			r.Delete("/", api.TeamHandler(db))
-			r.Put("/", api.TeamHandler(db))
+			r.Put("/", api.TeamHandler(db))                  // Update team name by ID
+			r.Get("/members", api.TeamMembersHandler(db))    // Get members of a team
+			r.Post("/members", api.TeamMembersHandler(db))   // Add a member to a team
+			r.Delete("/members", api.TeamMembersHandler(db)) // Remove a member from a team
+			r.Put("/members", api.TeamMembersHandler(db))    // Update a member's role in a team
 		})
-	})
-
-	// Team Members API
-	r.Route("/api/team_members", func(r chi.Router) {
-		r.Get("/", api.TeamMembersHandler(db))
-		r.Post("/", api.TeamMembersHandler(db))
-		r.Delete("/", api.TeamMembersHandler(db))
 	})
 
 	// Players API
 	r.Route("/api/players", func(r chi.Router) {
 		r.Get("/", api.PlayerHandler(db)) // Get all players
-		r.Route("/{userID}", func(r chi.Router) {
+		r.Route("/{user_id}", func(r chi.Router) {
 			// Ensure userID is an integer
 			r.Use(func(next http.Handler) http.Handler {
 				return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-					userID := chi.URLParam(r, "userID")
+					userID := chi.URLParam(r, "user_id")
 					if _, err := strconv.Atoi(userID); err != nil {
 						http.Error(w, "Invalid user ID", http.StatusBadRequest)
 						return
@@ -226,7 +221,7 @@ func main() {
 		http.ServeFile(w, r, "../static/index.html")
 	})
 
-	r.Get("/teams/", func(w http.ResponseWriter, r *http.Request) {
+	r.Get("/teams", func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, "../static/Teams/teams.html")
 	})
 
