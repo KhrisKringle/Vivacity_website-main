@@ -42,16 +42,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     // --- MODIFICATION IS HERE ---
                     // Combine the day and time into one readable string.
-                    const formattedDateTime = `${item.day} at ${item.time}`;
+                    const formattedDateTime = `${item.time}`;
 
                     // Update the HTML to show the activity on the left
                     // and the new formatted date/time on the right.
                     scheduleItem.innerHTML = `
                         <div>
-                            <p class="activity">${item.activity}</p>
+                            <p class="activity">${item.weekday}</p>
                         </div>
                         <p class="time">${formattedDateTime}</p>
                     `;
+
+                    // *** ADD THIS EVENT LISTENER ***
+                    // This will toggle the 'selected' class on click.
+                    scheduleItem.addEventListener('click', () => {
+                        scheduleItem.classList.toggle('selected');
+                    });
+
                     scheduleContainer.appendChild(scheduleItem);
                 });
             } else {
