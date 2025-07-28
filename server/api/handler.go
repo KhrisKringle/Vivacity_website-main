@@ -519,3 +519,101 @@ func TimeSlotsHandler(db *sql.DB) http.HandlerFunc {
 		}
 	}
 }
+
+func ScheduleHandler(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			// Fetch all time slots
+			rows, err := db.Query("SELECT slot_id, weekday, time FROM time_slots")
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			defer rows.Close()
+			var slots []map[string]any
+			for rows.Next() {
+				var slotID int
+				var weekday, time string
+				err := rows.Scan(&slotID, &weekday, &time)
+				if err != nil {
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+					return
+				}
+				slots = append(slots, map[string]any{
+					"slot_id": slotID,
+					"weekday": weekday,
+					"time":    time,
+				})
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(slots)
+
+		case http.MethodPost:
+			// Create a new time slot
+			var req struct {
+				Weekday string `json:"weekday"`
+				Time    string `json:"time"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				http.Error(w, "Invalid input", http.StatusBadRequest)
+				return
+			}
+			if req.Weekday == "" || req.Time == "" {
+				http.Error(w, "Weekday and Time are required", http.StatusBadRequest)
+				return
+			}
+			_, err := db.Exec("INSERT INTO time_slots (weekday, time) VALUES ($1, $2)", req.Weekday, req.Time)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			w.WriteHeader(http.StatusCreated)
+
+		case http.MethodDelete:
+			// Delete a time slot
+			var req struct {
+				SlotID int `json:"slot_id"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				http.Error(w, "Invalid input", http.StatusBadRequest)
+				return
+			}
+			if req.SlotID == 0 {
+				http.Error(w, "Slot ID is required", http.StatusBadRequest)
+				return
+			}
+			_, err := db.Exec("DELETE FROM time_slots WHERE slot_id = $1", req.SlotID)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			w.WriteHeader(http.StatusNoContent)
+
+		case http.MethodPut:
+			// Update a time slot
+			var req struct {
+				SlotID  int    `json:"slot_id"`
+				Weekday string `json:"weekday"`
+				Time    string `json:"time"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				http.Error(w, "Invalid input", http.StatusBadRequest)
+				return
+			}
+			if req.SlotID == 0 || req.Weekday == "" || req.Time == "" {
+				http.Error(w, "Slot ID, Weekday and Time are required", http.StatusBadRequest)
+				return
+			}
+			_, err := db.Exec("UPDATE time_slots SET weekday = $1, time = $2 WHERE slot_id = $3", req.Weekday, req.Time, req.SlotID)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			w.WriteHeader(http.StatusOK)
+
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	}
+}

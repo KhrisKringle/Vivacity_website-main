@@ -140,6 +140,27 @@ func main() {
 		r.Post("/", api.AvailabilityHandler(db))
 	})
 
+	r.Route("/api/schedule", func(r chi.Router) {
+		r.Route("/{team_id}", func(r chi.Router) {
+			// Ensure teamID is an integer
+			r.Use(func(next http.Handler) http.Handler {
+				return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					teamID := chi.URLParam(r, "team_id")
+					if _, err := strconv.Atoi(teamID); err != nil {
+						http.Error(w, "Invalid team ID", http.StatusBadRequest)
+						return
+					}
+					next.ServeHTTP(w, r)
+				})
+			})
+			// Schedule-specific handlers
+			r.Get("/", api.ScheduleHandler(db))    // Get schedule by team ID
+			r.Post("/", api.ScheduleHandler(db))   // Create schedule for a team
+			r.Delete("/", api.ScheduleHandler(db)) // Delete schedule for a team
+			r.Put("/", api.ScheduleHandler(db))    // Update schedule for a team
+		})
+	})
+
 	// Teams API
 	r.Route("/api/teams", func(r chi.Router) {
 		r.Post("/", api.TeamHandler(db))
@@ -164,6 +185,10 @@ func main() {
 			r.Post("/members", api.TeamMembersHandler(db))   // Add a member to a team
 			r.Delete("/members", api.TeamMembersHandler(db)) // Remove a member from a team
 			r.Put("/members", api.TeamMembersHandler(db))    // Update a member's role in a team
+			r.Get("/schedule", api.ScheduleHandler(db))      // Get schedule for a team
+			r.Post("/schedule", api.ScheduleHandler(db))     // Create schedule for a team
+			r.Delete("/schedule", api.ScheduleHandler(db))   // Delete schedule for a team
+			r.Put("/schedule", api.ScheduleHandler(db))      // Update schedule for a team
 		})
 	})
 
@@ -228,6 +253,10 @@ func main() {
 	// This route serves the team profile page
 	r.Get("/team-profile", func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, "../static/TeamProfilePage/team_page.html")
+	})
+
+	r.Get("/schedule", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "../static/Scheduling_Page/scheduling_page.html")
 	})
 
 	// Routes for Profile
