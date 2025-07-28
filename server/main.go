@@ -157,8 +157,8 @@ func main() {
 				})
 			})
 			// Team-specific handlers
-			r.Get("/", api.TeamHandler(db)) // Get team by ID
-			r.Delete("/", api.TeamHandler(db))
+			r.Get("/", api.TeamHandler(db))                  // Get team by ID
+			r.Delete("/", api.TeamHandler(db))               // Delete team by ID
 			r.Put("/", api.TeamHandler(db))                  // Update team name by ID
 			r.Get("/members", api.TeamMembersHandler(db))    // Get members of a team
 			r.Post("/members", api.TeamMembersHandler(db))   // Add a member to a team
