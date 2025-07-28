@@ -84,41 +84,40 @@ function populateTeamData(data) {
         teamNameElement.textContent = data.name || 'Unnamed Team';
     }
 
+    // --- UPDATED BUTTON LOGIC ---
+    // Get the schedule button and update its link when data is ready.
+    const scheduleButton = document.getElementById('scheduleButton');
+    if (scheduleButton && data.id) { 
+        scheduleButton.href = `/schedule?team_id=${data.id}`;
+    }
+
     // Get the grid container for the players.
     const playersGrid = document.getElementById('playersGrid');
     if (playersGrid) {
-        // Clear any "loading..." text.
         playersGrid.innerHTML = '';
 
-        // The JSON from the Go API uses a lowercase "members" field.
         if (data.members && data.members.length > 0) {
-
-            // --- Sorting Logic Starts Here ---
-
-            // 1. Define the desired order for roles.
+            // Define the desired order for roles.
             const roleOrder = {
                 'Tank': 1,
                 'DPS': 2,
-                'Support': 3
+                'Support': 3,
+                'Coach': 4,
+                'Manager': 5
             };
 
-            // 2. Sort the members array based on the role order.
-            //    Any roles not in the map will be placed at the end.
+            // Sort the members array based on the role order.
             data.members.sort((a, b) => {
                 const orderA = roleOrder[a.role] || 99;
                 const orderB = roleOrder[b.role] || 99;
                 return orderA - orderB;
             });
 
-            // --- Sorting Logic Ends Here ---
-
-
-            // If the team has members, loop through them and create a card for each.
+            // Loop through the sorted members and create a card for each.
             data.members.forEach(member => {
                 const playerCard = document.createElement('div');
-                playerCard.className = 'player-card'; // Use this class for styling in your CSS.
+                playerCard.className = 'player-card';
 
-                // The keys "username" and "role" are also lowercase in the JSON.
                 playerCard.innerHTML = `
                     <span class="text-xl text-cyan-400">${member.username}</span>
                     <span class="text-lg text-orange-500">${member.role}</span>
