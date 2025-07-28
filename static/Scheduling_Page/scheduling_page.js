@@ -40,12 +40,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     const scheduleItem = document.createElement('div');
                     scheduleItem.className = 'schedule-item';
 
+                    // --- MODIFICATION IS HERE ---
+                    // Combine the day and time into one readable string.
+                    const formattedDateTime = `${item.day} at ${item.time}`;
+
+                    // Update the HTML to show the activity on the left
+                    // and the new formatted date/time on the right.
                     scheduleItem.innerHTML = `
                         <div>
-                            <p class="day">${item.day}</p>
                             <p class="activity">${item.activity}</p>
                         </div>
-                        <p class="time">${item.time}</p>
+                        <p class="time">${formattedDateTime}</p>
                     `;
                     scheduleContainer.appendChild(scheduleItem);
                 });

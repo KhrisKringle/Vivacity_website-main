@@ -178,17 +178,19 @@ func main() {
 				})
 			})
 			// Team-specific handlers
-			r.Get("/", api.TeamHandler(db))                  // Get team by ID
-			r.Delete("/", api.TeamHandler(db))               // Delete team by ID
-			r.Put("/", api.TeamHandler(db))                  // Update team name by ID
+			r.Get("/", api.TeamHandler(db))    // Get team by ID
+			r.Delete("/", api.TeamHandler(db)) // Delete team by ID
+			r.Put("/", api.TeamHandler(db))    // Update team name by ID
+
 			r.Get("/members", api.TeamMembersHandler(db))    // Get members of a team
 			r.Post("/members", api.TeamMembersHandler(db))   // Add a member to a team
 			r.Delete("/members", api.TeamMembersHandler(db)) // Remove a member from a team
 			r.Put("/members", api.TeamMembersHandler(db))    // Update a member's role in a team
-			r.Get("/schedule", api.ScheduleHandler(db))      // Get schedule for a team
-			r.Post("/schedule", api.ScheduleHandler(db))     // Create schedule for a team
-			r.Delete("/schedule", api.ScheduleHandler(db))   // Delete schedule for a team
-			r.Put("/schedule", api.ScheduleHandler(db))      // Update schedule for a team
+
+			r.Get("/schedule", api.ScheduleHandler(db))    // Get schedule for a team
+			r.Post("/schedule", api.ScheduleHandler(db))   // Create schedule for a team
+			r.Delete("/schedule", api.ScheduleHandler(db)) // Delete schedule for a team
+			r.Put("/schedule", api.ScheduleHandler(db))    // Update schedule for a team
 		})
 	})
 
