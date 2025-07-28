@@ -144,11 +144,11 @@ func main() {
 	r.Route("/api/teams/", func(r chi.Router) {
 		r.Post("/", api.TeamHandler(db))
 		// Team-specific routes
-		r.Route("/{teamID}", func(r chi.Router) {
+		r.Route("/{team_id}", func(r chi.Router) {
 			// Ensure teamID is an integer
 			r.Use(func(next http.Handler) http.Handler {
 				return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-					teamID := chi.URLParam(r, "teamID")
+					teamID := chi.URLParam(r, "team_id")
 					if _, err := strconv.Atoi(teamID); err != nil {
 						http.Error(w, "Invalid team ID", http.StatusBadRequest)
 						return

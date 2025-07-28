@@ -1,36 +1,41 @@
-// This script runs when the team profile page (team_page.html) is loaded.
+// This script runs once the entire HTML document has been loaded and parsed.
 document.addEventListener('DOMContentLoaded', () => {
+    
     // --- Step 1: Get the Team ID from the URL ---
-    // The URL looks like "/team-profile?teamId=1". This code extracts the "1".
+    // The URL looks like "/team-profile?team_id=1". This code extracts the "1".
     const params = new URLSearchParams(window.location.search);
-    const teamId = params.get('teamId');
+    const team_id = params.get('team_id');
 
-    // If no teamId is found, we can't load a profile. Display an error and stop.
-    if (!teamId) {
-        document.body.innerHTML = '<h1 style="color: white; text-align: center;">Error: No Team ID was provided in the URL.</h1>';
-        return;
+    // If no team_id is found in the URL, we can't load a profile. 
+    // Display an error message and stop the script.
+    if (!team_id) {
+        document.getElementById('team_name').textContent = 'Error: No Team ID Provided';
+        document.getElementById('playersGrid').innerHTML = '<p class="text-red-400">Please go back to the teams page and select a team.</p>';
+        console.error("No team_id found in URL parameters.");
+        return; // Stop the function from proceeding further
     }
 
     // --- Step 2: Fetch the Team's Data from the API ---
-    // Use the teamId to call the specific API endpoint for that team.
-    fetch(`/api/teams/${teamId}`)
-        .then(response => {
+    // Use the team_id to call the specific API endpoint for that team.
+    fetch(`/api/teams/${team_id}`)
+        .then(async response => {
             // If the server returns an error (like 404 Not Found), handle it.
             if (!response.ok) {
-                return response.text().then(text => { throw new Error(text || 'Team not found') });
+                const text = await response.text();
+                throw new Error(text || `Team with ID ${team_id} not found`);
             }
             // If the response is successful, parse the JSON data.
             return response.json();
         })
         .then(data => {
             // --- Step 3: Populate the Page with the Fetched Data ---
-            // Call our helper function to update the HTML.
+            // Call our helper function to update the HTML with the team's info.
             populateTeamData(data);
         })
         .catch(error => {
-            // If any part of the fetch process fails, display an error message.
+            // If any part of the fetch process fails, display an informative error message.
             console.error('Error fetching team data:', error);
-            const teamNameElement = document.getElementById('teamName');
+            const teamNameElement = document.getElementById('team_name');
             if (teamNameElement) {
                 teamNameElement.textContent = 'Error: Team Could Not Be Loaded';
             }
@@ -40,14 +45,17 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-    // --- Step 4: Check Authentication Status (Your existing code, works perfectly) ---
+    // --- Step 4: Check Authentication Status ---
+    // This part runs independently to update the navigation buttons.
     fetch('/auth/user')
         .then(response => {
             if (response.status === 401) {
+                // User is not logged in
                 document.getElementById('profileButton').classList.add('hidden');
                 document.getElementById('authButton').textContent = 'Login';
                 document.getElementById('authButton').href = '/login';
             } else {
+                // User is logged in
                 return response.json().then(user => {
                     document.getElementById('profileButton').href = `/profile/${user.UserID}`;
                     document.getElementById('profileButton').classList.remove('hidden');
@@ -57,7 +65,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         })
         .catch(error => {
-            console.error('Error checking auth:', error);
+            // Handle any errors during the auth check
+            console.error('Error checking auth status:', error);
             document.getElementById('profileButton').classList.add('hidden');
             document.getElementById('authButton').textContent = 'Login';
             document.getElementById('authButton').href = '/login';
@@ -70,7 +79,7 @@ document.addEventListener('DOMContentLoaded', () => {
  */
 function populateTeamData(data) {
     // Set the team name in the <h2> tag
-    const teamNameElement = document.getElementById('teamName');
+    const teamNameElement = document.getElementById('team_name');
     if (teamNameElement) {
         teamNameElement.textContent = data.name || 'Unnamed Team';
     }
