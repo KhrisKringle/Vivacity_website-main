@@ -1,15 +1,15 @@
 // This script runs once the entire HTML document has been loaded and parsed.
 document.addEventListener('DOMContentLoaded', () => {
-    
+
     // --- Step 1: Get the Team ID from the URL ---
     // The URL looks like "/team-profile?team_id=1". This code extracts the "1".
     const params = new URLSearchParams(window.location.search);
     const team_id = params.get('team_id');
 
-    // If no team_id is found in the URL, we can't load a profile. 
+    // If no team_id is found in the URL, we can't load a profile.
     // Display an error message and stop the script.
     if (!team_id) {
-        document.getElementById('team_name').textContent = 'Error: No Team ID Provided';
+        document.getElementById('teamName').textContent = 'Error: No Team ID Provided';
         document.getElementById('playersGrid').innerHTML = '<p class="text-red-400">Please go back to the teams page and select a team.</p>';
         console.error("No team_id found in URL parameters.");
         return; // Stop the function from proceeding further
@@ -35,7 +35,7 @@ document.addEventListener('DOMContentLoaded', () => {
         .catch(error => {
             // If any part of the fetch process fails, display an informative error message.
             console.error('Error fetching team data:', error);
-            const teamNameElement = document.getElementById('team_name');
+            const teamNameElement = document.getElementById('teamName');
             if (teamNameElement) {
                 teamNameElement.textContent = 'Error: Team Could Not Be Loaded';
             }
@@ -79,7 +79,7 @@ document.addEventListener('DOMContentLoaded', () => {
  */
 function populateTeamData(data) {
     // Set the team name in the <h2> tag
-    const teamNameElement = document.getElementById('team_name');
+    const teamNameElement = document.getElementById('teamName');
     if (teamNameElement) {
         teamNameElement.textContent = data.name || 'Unnamed Team';
     }
@@ -90,12 +90,35 @@ function populateTeamData(data) {
         // Clear any "loading..." text.
         playersGrid.innerHTML = '';
 
+        // The JSON from the Go API uses a lowercase "members" field.
         if (data.members && data.members.length > 0) {
+
+            // --- Sorting Logic Starts Here ---
+
+            // 1. Define the desired order for roles.
+            const roleOrder = {
+                'Tank': 1,
+                'DPS': 2,
+                'Support': 3
+            };
+
+            // 2. Sort the members array based on the role order.
+            //    Any roles not in the map will be placed at the end.
+            data.members.sort((a, b) => {
+                const orderA = roleOrder[a.role] || 99;
+                const orderB = roleOrder[b.role] || 99;
+                return orderA - orderB;
+            });
+
+            // --- Sorting Logic Ends Here ---
+
+
             // If the team has members, loop through them and create a card for each.
             data.members.forEach(member => {
                 const playerCard = document.createElement('div');
                 playerCard.className = 'player-card'; // Use this class for styling in your CSS.
-                
+
+                // The keys "username" and "role" are also lowercase in the JSON.
                 playerCard.innerHTML = `
                     <span class="text-xl text-cyan-400">${member.username}</span>
                     <span class="text-lg text-orange-500">${member.role}</span>

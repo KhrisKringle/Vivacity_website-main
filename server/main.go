@@ -141,7 +141,7 @@ func main() {
 	})
 
 	// Teams API
-	r.Route("/api/teams/", func(r chi.Router) {
+	r.Route("/api/teams", func(r chi.Router) {
 		r.Post("/", api.TeamHandler(db))
 		// Team-specific routes
 		r.Route("/{team_id}", func(r chi.Router) {
