@@ -8,6 +8,16 @@ import (
 	"strings"
 )
 
+type AvailabilitySlot struct {
+	Day  string `json:"day"`
+	Time string `json:"time"`
+}
+
+// Represents the entire JSON object from the frontend
+type AvailabilityRequest struct {
+	SelectedSlots []AvailabilitySlot `json:"selected_slots"`
+}
+
 // AvailabilityHandler handles GET and POST requests for user availability.
 func AvailabilityHandler(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -50,37 +60,41 @@ func AvailabilityHandler(db *sql.DB) http.HandlerFunc {
 			json.NewEncoder(w).Encode(slots)
 		case http.MethodPost:
 			var req struct {
-				UserID    int    `json:"user_id"`
-				TeamID    int    `json:"team_id"`
-				Day       string `json:"day"`
-				Time      string `json:"time"`
-				Available bool   `json:"available"`
+				AvailabilityRequest
 			}
 			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 				http.Error(w, "Invalid input", http.StatusBadRequest)
 				return
 			}
+			if len(req.SelectedSlots) == 0 {
+				http.Error(w, "User ID and selected slots are required", http.StatusBadRequest)
+				return
+			}
+			// Check if the user is a member of the team
 			var count int
-			err := db.QueryRow("SELECT COUNT(*) FROM team_members WHERE user_id = $1 AND team_id = $2", req.UserID, req.TeamID).Scan(&count)
+			err := db.QueryRow("SELECT COUNT(*) FROM team_members WHERE user_id = $1 AND team_id = $2", r.Context().Value("user_id"), r.Context().Value("team_id")).Scan(&count)
 			if err != nil || count == 0 {
 				http.Error(w, "Unauthorized", http.StatusUnauthorized)
 				return
 			}
-			var slotID int
-			err = db.QueryRow("SELECT slot_id FROM time_slots WHERE weekday = $1 AND time = $2", req.Day, req.Time).Scan(&slotID)
+
+			// Clear existing availability for the user
+			_, err = db.Exec("DELETE FROM availability WHERE user_id = $1", r.Context().Value("user_id"))
 			if err != nil {
-				http.Error(w, "Invalid slot", http.StatusBadRequest)
+				http.Error(w, "Failed to clear existing availability", http.StatusInternalServerError)
 				return
 			}
-			_, err = db.Exec(`
-				INSERT INTO availability (user_id, slot_id, available)
-				VALUES ($1, $2, $3)
-				ON CONFLICT (user_id, slot_id) DO UPDATE SET available = $3
-			`, req.UserID, slotID, req.Available)
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
+
+			// Insert new availability slots
+			for _, slot := range req.SelectedSlots {
+				_, err = db.Exec("INSERT INTO availability (user_id, slot_id) VALUES ($1, (SELECT id FROM time_slots WHERE weekday = $2 AND time = $3 LIMIT 1))",
+					r.Context().Value("user_id"), slot.Day, slot.Time)
+				if err != nil {
+					http.Error(w, "Failed to insert new availability slot", http.StatusInternalServerError)
+					return
+				}
 			}
+
 			w.WriteHeader(http.StatusOK)
 		default:
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)

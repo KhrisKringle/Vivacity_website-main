@@ -1,6 +1,11 @@
 document.addEventListener('DOMContentLoaded', () => {
     const params = new URLSearchParams(window.location.search);
     const team_id = params.get('team_id');
+    const scheduleContainer = document.getElementById('scheduleContainer');
+    const submitButton = document.getElementById('submitAvailability');
+
+    // This array will store the selected timeslots
+    let selectedTimeslots = [];
 
     if (!team_id) {
         document.getElementById('teamName').textContent = 'Error: No Team ID Provided';
@@ -48,7 +53,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     // and the new formatted date/time on the right.
                     scheduleItem.innerHTML = `
                         <div>
-                            <p class="activity">${item.weekday}</p>
+                            <p class="weekday">${item.weekday}</p>
                         </div>
                         <p class="time">${formattedDateTime}</p>
                     `;
@@ -57,6 +62,24 @@ document.addEventListener('DOMContentLoaded', () => {
                     // This will toggle the 'selected' class on click.
                     scheduleItem.addEventListener('click', () => {
                         scheduleItem.classList.toggle('selected');
+
+                        const timeSlot = {
+                            weekday: item.weekday,
+                            time: item.time
+                        };
+                        // Check if the timeslot is already selected
+                        const index = selectedTimeslots.findIndex(slot => slot.day === timeSlot.day && slot.time === timeSlot.time);
+
+                        if (index > -1) {
+                            // If it is, remove it from the array
+                            selectedTimeslots.splice(index, 1);
+                        } else {
+                            // If it's not, add it to the array
+                            selectedTimeslots.push(timeSlot);
+                        }
+                        
+                        console.log('Selected Times:', selectedTimeslots); // For debugging
+                    
                     });
 
                     scheduleContainer.appendChild(scheduleItem);
@@ -70,4 +93,41 @@ document.addEventListener('DOMContentLoaded', () => {
             const scheduleContainer = document.getElementById('scheduleContainer');
             scheduleContainer.innerHTML = `<p>${error.message}</p>`;
         });
+        // --- NEW: Event listener for the submit button ---
+    submitButton.addEventListener('click', () => {
+        if (selectedTimeslots.length === 0) {
+            alert('Please select at least one timeslot.');
+            return;
+        }
+
+        // POST the selected times to a new API endpoint
+        fetch(`/api/teams/${team_id}/availability`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                // You might want to include a player ID here in a real application
+                player_id: 'current_player_id', 
+                selected_slots: selectedTimeslots
+            })
+        })
+        .then(response => {
+            if (!response.ok) throw new Error('Failed to submit availability.');
+            return response.json();
+        })
+        .then(data => {
+            alert('Availability submitted successfully!');
+            console.log(data);
+            // Optionally, redirect or clear selections
+            selectedTimeslots = [];
+            document.querySelectorAll('.schedule-item.selected').forEach(card => {
+                card.classList.remove('selected');
+            });
+        })
+        .catch(error => {
+            console.error('Error submitting availability:', error);
+            alert(error.message);
+        });
+    });
 });

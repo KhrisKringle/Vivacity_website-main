@@ -53,7 +53,6 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error generating session secret: %v", err)
 	}
-	fmt.Println(sessionSecret)
 
 	// Use a custom session store
 	gothic.Store = store
@@ -105,7 +104,8 @@ func main() {
 		}
 
 		// Process user data from Blizzard and create/update account
-		err = user_account.HandleBlizzardAuth(db, user)
+		// Process user data and get back both the userID AND teamID
+		dbUserID, dbTeamID, err := user_account.HandleBlizzardAuth(db, user)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("Failed to process user: %v", err), http.StatusInternalServerError)
 			return
@@ -113,8 +113,16 @@ func main() {
 
 		// Store user in session
 		session, _ := store.Get(r, "auth-session")
-		session.Values["User"] = user          // Convert int to string
-		session.Values["UserID"] = user.UserID // Store battletag separately
+		session.Values["User"] = user       // Convert int to string
+		session.Values["UserID"] = dbUserID // Store userID
+		// *** ADD THE TEAM ID TO THE SESSION ***
+		if dbTeamID.Valid {
+			// Only store it if the user is on a team
+			session.Values["TeamID"] = dbTeamID.Int64
+		} else {
+			// If the user leaves a team, ensure the old value is removed
+			delete(session.Values, "TeamID")
+		}
 		session.Save(r, w)
 
 		// Redirect user to profile page
@@ -132,33 +140,6 @@ func main() {
 		gothic.Logout(w, r)
 		w.Header().Set("Location", "/")
 		w.WriteHeader(http.StatusTemporaryRedirect)
-	})
-
-	// Availability API
-	r.Route("/api/availability", func(r chi.Router) {
-		r.Get("/", api.AvailabilityHandler(db))
-		r.Post("/", api.AvailabilityHandler(db))
-	})
-
-	r.Route("/api/schedule", func(r chi.Router) {
-		r.Route("/{team_id}", func(r chi.Router) {
-			// Ensure teamID is an integer
-			r.Use(func(next http.Handler) http.Handler {
-				return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-					teamID := chi.URLParam(r, "team_id")
-					if _, err := strconv.Atoi(teamID); err != nil {
-						http.Error(w, "Invalid team ID", http.StatusBadRequest)
-						return
-					}
-					next.ServeHTTP(w, r)
-				})
-			})
-			// Schedule-specific handlers
-			r.Get("/", api.ScheduleHandler(db))    // Get schedule by team ID
-			r.Post("/", api.ScheduleHandler(db))   // Create schedule for a team
-			r.Delete("/", api.ScheduleHandler(db)) // Delete schedule for a team
-			r.Put("/", api.ScheduleHandler(db))    // Update schedule for a team
-		})
 	})
 
 	// Teams API
@@ -191,6 +172,9 @@ func main() {
 			r.Post("/schedule", api.ScheduleHandler(db))   // Create schedule for a team
 			r.Delete("/schedule", api.ScheduleHandler(db)) // Delete schedule for a team
 			r.Put("/schedule", api.ScheduleHandler(db))    // Update schedule for a team
+
+			r.Get("/availability", api.AvailabilityHandler(db))  // Get availability for a team
+			r.Post("/availability", api.AvailabilityHandler(db)) // Set availability for a team
 		})
 	})
 
