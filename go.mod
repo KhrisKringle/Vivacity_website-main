@@ -1,4 +1,4 @@
-module Vivacity_website
+module github.com/KhrisKringle/Vivacity_website-main
 
 go 1.23.4
 

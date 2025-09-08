@@ -6,17 +6,20 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 
-	"Vivacity_website/server/api"
-	"Vivacity_website/server/datab"
-	"Vivacity_website/server/user_account"
+	"github.com/KhrisKringle/Vivacity_website-main/server/api"
+	"github.com/KhrisKringle/Vivacity_website-main/server/datab"
+	"github.com/KhrisKringle/Vivacity_website-main/server/user_account"
 
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/chi/v5"
 	"github.com/gorilla/sessions"
 
+	"github.com/markbates/goth"
 	"github.com/markbates/goth/gothic"
+	"github.com/markbates/goth/providers/battlenet"
 )
 
 var (
@@ -24,13 +27,13 @@ var (
 	store            = sessions.NewCookieStore([]byte(sessionSecret))
 )
 
-// func getBlizzardSecret() string {
-// 	secret := os.Getenv("BLIZZARD_CLIENT_SECRET")
-// 	if secret == "" {
-// 		log.Fatal("BLIZZARD_CLIENT_SECRET environment variable not set")
-// 	}
-// 	return secret
-// }
+func getBlizzardSecret() string {
+	secret := os.Getenv("BLIZZARD_CLIENT_SECRET")
+	if secret == "" {
+		log.Fatal("BLIZZARD_CLIENT_SECRET environment variable not set")
+	}
+	return secret
+}
 
 func main() {
 	// Connect to PostgreSQL
@@ -62,16 +65,16 @@ func main() {
 	log.Println("Session store configured!")
 
 	// Configure Gothic with Blizzard as the provider
-	// goth.UseProviders(
-	// 	battlenet.New("a54315d3ec30453f9e58d1173caa05f6", getBlizzardSecret(), "http://192.168.1.234:8080/auth/callback/battlenet", "us"), // Adjust region as needed
-	// )
+	goth.UseProviders(
+		battlenet.New("a54315d3ec30453f9e58d1173caa05f6", getBlizzardSecret(), "http://192.168.1.234:8080/auth/callback/battlenet", "us"), // Adjust region as needed
+	)
 
 	r := chi.NewRouter()
 
 	// Add middleware
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
-	// r.Use(middleware.Throttle(10)) // Allow 10 requests per second
+	r.Use(middleware.Throttle(10)) // Allow 10 requests per second
 
 	r.Get("/auth/user", func(w http.ResponseWriter, r *http.Request) {
 		session, _ := store.Get(r, "auth-session")

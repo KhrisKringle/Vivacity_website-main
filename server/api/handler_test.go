@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"Vivacity_website/server/api"
+	"github.com/KhrisKringle/Vivacity_website-main/server/api"
 
 	"github.com/DATA-DOG/go-sqlmock"
 )
