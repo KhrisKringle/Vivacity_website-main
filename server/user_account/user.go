@@ -20,28 +20,37 @@ type User struct {
 	Team     string
 }
 
-// HandleBlizzardAuth processes the authenticated Blizzard user data and creates or updates their account in the database.
-func HandleBlizzardAuth(db *sql.DB, user goth.User) error {
-	// Check if the user already exists in the database
-	var userID int64
-	query := "SELECT user_id FROM users WHERE username = $1"
-	err := db.QueryRow(query, user.NickName).Scan(&userID)
+// and returns their internal database ID and their team ID.
+func HandleBlizzardAuth(db *sql.DB, user goth.User) (userID int64, teamID sql.NullInt64, err error) {
+	// Check if the user already exists in the database by their Blizzard UserID
+	blizzardUserID, _ := strconv.ParseInt(user.UserID, 10, 64)
+	query := "SELECT id FROM users WHERE user_id = $1" // Assuming 'id' is your primary key
+	err = db.QueryRow(query, blizzardUserID).Scan(&userID)
+
 	if err == sql.ErrNoRows {
-		// If the user does not exist, insert a new record
-		userIDInt, err := strconv.ParseInt(user.UserID, 10, 64)
+		// If the user does not exist, insert a new record and get their new primary key ID
+		insertQuery := "INSERT INTO users (username, user_id) VALUES ($1, $2) RETURNING id"
+		err = db.QueryRow(insertQuery, user.NickName, blizzardUserID).Scan(&userID)
 		if err != nil {
-			return fmt.Errorf("failed to parse user ID: %v", err)
-		}
-		_, err = db.Exec("INSERT INTO users (username, user_id) VALUES ($1, $2)", user.NickName, userIDInt)
-		if err != nil {
-			return fmt.Errorf("failed to insert user: %v", err)
+			return 0, sql.NullInt64{}, fmt.Errorf("failed to insert user: %v", err)
 		}
 	} else if err != nil {
-		return fmt.Errorf("failed to check user: %v", err)
+		return 0, sql.NullInt64{}, fmt.Errorf("failed to check user: %v", err)
 	}
 
-	// You can add additional logic here to update the user if needed
-	return nil
+	// Now that we have the user's internal ID, find their team_id.
+	// This query finds the team_id for the user. We use sql.NullInt64
+	// to correctly handle cases where a user is not on a team.
+	teamQuery := "SELECT team_id FROM team_members WHERE user_id = $1 LIMIT 1"
+	err = db.QueryRow(teamQuery, userID).Scan(&teamID)
+	if err != nil && err != sql.ErrNoRows {
+		// An actual error occurred (not just 'no team found')
+		return userID, sql.NullInt64{}, fmt.Errorf("failed to query for team_id: %v", err)
+	}
+
+	// If the user is not on a team, err will be sql.ErrNoRows, and teamID.Valid will be false.
+	// This is the correct behavior.
+	return userID, teamID, nil
 }
 
 func GenerateSessionSecret(length int) (string, error) {

@@ -99,13 +99,13 @@ func SetupDB(db *sql.DB) error {
 	_, err = db.Exec(`
 		INSERT INTO time_slots (weekday, time)
 		VALUES
-			('Monday', '19:00:00'), ('Monday', '20:00:00'), ('Monday', '21:00:00'),
-			('Tuesday', '19:00:00'), ('Tuesday', '20:00:00'), ('Tuesday', '21:00:00'),
-			('Wednesday', '19:00:00'), ('Wednesday', '20:00:00'), ('Wednesday', '21:00:00'),
-			('Thursday', '19:00:00'), ('Thursday', '20:00:00'), ('Thursday', '21:00:00'),
-			('Friday', '19:00:00'), ('Friday', '20:00:00'), ('Friday', '21:00:00'),
-			('Saturday', '19:00:00'), ('Saturday', '20:00:00'), ('Saturday', '21:00:00'),
-			('Sunday', '19:00:00'), ('Sunday', '20:00:00'), ('Sunday', '21:00:00')
+			('Monday', '19:00:00'), ('Monday', '21:00:00'),
+			('Tuesday', '19:00:00'), ('Tuesday', '21:00:00'),
+			('Wednesday', '19:00:00'), ('Wednesday', '21:00:00'),
+			('Thursday', '19:00:00'), ('Thursday', '21:00:00'),
+			('Friday', '19:00:00'), ('Friday', '21:00:00'),
+			('Saturday', '19:00:00'), ('Saturday', '21:00:00'),
+			('Sunday', '19:00:00'), ('Sunday', '21:00:00')
 		ON CONFLICT (weekday, time) DO NOTHING;
 	`)
 	if err != nil {

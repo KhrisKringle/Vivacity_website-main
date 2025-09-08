@@ -1,0 +1,64 @@
+body {
+  font-family: 'Orbitron', sans-serif;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  color: #00ffea; /* Bright cyan text color */
+}
+
+.nav-button {
+  background-color: #00ffea;
+  color: #1a1a2e;
+  padding: 0.5rem 1rem;
+  border-radius: 0.25rem;
+  text-decoration: none;
+  border: none;
+  transition: background-color 0.2s;
+}
+
+.nav-button:hover {
+  background-color: #00ccbb;
+}
+
+.schedule-item {
+  background-color: #2a2a4e;
+  border-radius: 0.5rem;
+  box-shadow: 0 0 10px #00ffea;
+  padding: 1.5rem;
+  text-align: left;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer; /* Add this to show it's clickable */
+  transition: background-color 0.3s, box-shadow 0.3s; /* Smooth transition */
+}
+
+/* This is the new style for the selected state */
+.schedule-item.selected {
+  background-color: #e67e22; /* Orange background */
+  box-shadow: 0 0 15px #e67e22; /* Orange glow */
+  color: #1a1a2e; /* Dark text for better contrast */
+}
+
+.schedule-item .day {
+  font-weight: bold;
+  font-size: 1.25rem;
+  color: white;
+}
+
+/* Make text inside selected card dark */
+.schedule-item.selected .day,
+.schedule-item.selected .activity,
+.schedule-item.selected .time {
+    color: #1a1a2e;
+}
+
+
+.schedule-item .activity {
+  font-size: 1.1rem;
+  color: #c9d1d9;
+}
+
+.schedule-item .time {
+  font-size: 1rem;
+  color: #00ffea;
+  font-style: italic;
+}

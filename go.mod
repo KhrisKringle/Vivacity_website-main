@@ -9,6 +9,8 @@ require (
 	github.com/markbates/goth v1.80.0
 )
 
+require github.com/golang-jwt/jwt/v5 v5.2.3 // indirect
+
 require (
 	github.com/DATA-DOG/go-sqlmock v1.5.2
 	github.com/go-chi/chi v1.5.5

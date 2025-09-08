@@ -8,6 +8,16 @@ import (
 	"strings"
 )
 
+type AvailabilitySlot struct {
+	Day  string `json:"day"`
+	Time string `json:"time"`
+}
+
+// Represents the entire JSON object from the frontend
+type AvailabilityRequest struct {
+	SelectedSlots []AvailabilitySlot `json:"selected_slots"`
+}
+
 // AvailabilityHandler handles GET and POST requests for user availability.
 func AvailabilityHandler(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -50,37 +60,41 @@ func AvailabilityHandler(db *sql.DB) http.HandlerFunc {
 			json.NewEncoder(w).Encode(slots)
 		case http.MethodPost:
 			var req struct {
-				UserID    int    `json:"user_id"`
-				TeamID    int    `json:"team_id"`
-				Day       string `json:"day"`
-				Time      string `json:"time"`
-				Available bool   `json:"available"`
+				AvailabilityRequest
 			}
 			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 				http.Error(w, "Invalid input", http.StatusBadRequest)
 				return
 			}
+			if len(req.SelectedSlots) == 0 {
+				http.Error(w, "User ID and selected slots are required", http.StatusBadRequest)
+				return
+			}
+			// Check if the user is a member of the team
 			var count int
-			err := db.QueryRow("SELECT COUNT(*) FROM team_members WHERE user_id = $1 AND team_id = $2", req.UserID, req.TeamID).Scan(&count)
+			err := db.QueryRow("SELECT COUNT(*) FROM team_members WHERE user_id = $1 AND team_id = $2", r.Context().Value("user_id"), r.Context().Value("team_id")).Scan(&count)
 			if err != nil || count == 0 {
 				http.Error(w, "Unauthorized", http.StatusUnauthorized)
 				return
 			}
-			var slotID int
-			err = db.QueryRow("SELECT slot_id FROM time_slots WHERE weekday = $1 AND time = $2", req.Day, req.Time).Scan(&slotID)
+
+			// Clear existing availability for the user
+			_, err = db.Exec("DELETE FROM availability WHERE user_id = $1", r.Context().Value("user_id"))
 			if err != nil {
-				http.Error(w, "Invalid slot", http.StatusBadRequest)
+				http.Error(w, "Failed to clear existing availability", http.StatusInternalServerError)
 				return
 			}
-			_, err = db.Exec(`
-				INSERT INTO availability (user_id, slot_id, available)
-				VALUES ($1, $2, $3)
-				ON CONFLICT (user_id, slot_id) DO UPDATE SET available = $3
-			`, req.UserID, slotID, req.Available)
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
+
+			// Insert new availability slots
+			for _, slot := range req.SelectedSlots {
+				_, err = db.Exec("INSERT INTO availability (user_id, slot_id) VALUES ($1, (SELECT id FROM time_slots WHERE weekday = $2 AND time = $3 LIMIT 1))",
+					r.Context().Value("user_id"), slot.Day, slot.Time)
+				if err != nil {
+					http.Error(w, "Failed to insert new availability slot", http.StatusInternalServerError)
+					return
+				}
 			}
+
 			w.WriteHeader(http.StatusOK)
 		default:
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -514,6 +528,104 @@ func TimeSlotsHandler(db *sql.DB) http.HandlerFunc {
 				return
 			}
 			w.WriteHeader(http.StatusOK)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	}
+}
+
+func ScheduleHandler(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			// Fetch all time slots
+			rows, err := db.Query("SELECT slot_id, weekday, time FROM time_slots")
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			defer rows.Close()
+			var slots []map[string]any
+			for rows.Next() {
+				var slotID int
+				var weekday, time string
+				err := rows.Scan(&slotID, &weekday, &time)
+				if err != nil {
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+					return
+				}
+				slots = append(slots, map[string]any{
+					"slot_id": slotID,
+					"weekday": weekday,
+					"time":    time,
+				})
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(slots)
+
+		case http.MethodPost:
+			// Create a new time slot
+			var req struct {
+				Weekday string `json:"weekday"`
+				Time    string `json:"time"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				http.Error(w, "Invalid input", http.StatusBadRequest)
+				return
+			}
+			if req.Weekday == "" || req.Time == "" {
+				http.Error(w, "Weekday and Time are required", http.StatusBadRequest)
+				return
+			}
+			_, err := db.Exec("INSERT INTO time_slots (weekday, time) VALUES ($1, $2)", req.Weekday, req.Time)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			w.WriteHeader(http.StatusCreated)
+
+		case http.MethodDelete:
+			// Delete a time slot
+			var req struct {
+				SlotID int `json:"slot_id"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				http.Error(w, "Invalid input", http.StatusBadRequest)
+				return
+			}
+			if req.SlotID == 0 {
+				http.Error(w, "Slot ID is required", http.StatusBadRequest)
+				return
+			}
+			_, err := db.Exec("DELETE FROM time_slots WHERE slot_id = $1", req.SlotID)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			w.WriteHeader(http.StatusNoContent)
+
+		case http.MethodPut:
+			// Update a time slot
+			var req struct {
+				SlotID  int    `json:"slot_id"`
+				Weekday string `json:"weekday"`
+				Time    string `json:"time"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				http.Error(w, "Invalid input", http.StatusBadRequest)
+				return
+			}
+			if req.SlotID == 0 || req.Weekday == "" || req.Time == "" {
+				http.Error(w, "Slot ID, Weekday and Time are required", http.StatusBadRequest)
+				return
+			}
+			_, err := db.Exec("UPDATE time_slots SET weekday = $1, time = $2 WHERE slot_id = $3", req.Weekday, req.Time, req.SlotID)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			w.WriteHeader(http.StatusOK)
+
 		default:
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}

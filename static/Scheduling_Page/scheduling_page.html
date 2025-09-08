@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Team Schedule - Vivacity eSports</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/Scheduling_Page/scheduling_page.css">
+</head>
+<body class="min-h-screen flex flex-col items-center p-4">
+  <nav class="w-full max-w-6xl flex justify-between items-center mb-8">
+    <h1 class="text-4xl font-bold">Vivacity eSports</h1>
+    <div class="space-x-4">
+      <a href="/" class="nav-button">Home</a>
+      <a href="/teams" class="nav-button">Teams</a>
+    </div>
+  </nav>
+
+  <main class="w-full max-w-4xl text-center">
+    <h2 id="teamName" class="text-3xl font-bold mb-8">Loading Schedule...</h2>
+    <div id="scheduleContainer" class="space-y-4">
+      </div>
+  </main>
+
+  <div class="text-center mt-4">
+            <button id="submitAvailability" class="nav-button">Submit Availability</button>
+        </div>
+
+  <script src="/static/Scheduling_Page/scheduling_page.js"></script>
+</body>
+</html>
