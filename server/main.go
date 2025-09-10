@@ -1,7 +1,11 @@
 package main
 
 import (
+
+	//"encoding/json"
+
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -22,20 +26,63 @@ import (
 	"github.com/markbates/goth/providers/battlenet"
 )
 
-var (
-	sessionSecret, _ = user_account.GenerateSessionSecret(32)
-	store            = sessions.NewCookieStore([]byte(sessionSecret))
-)
+var store *sessions.CookieStore
 
-func getBlizzardSecret() string {
-	secret := os.Getenv("BLIZZARD_CLIENT_SECRET")
-	if secret == "" {
-		log.Fatal("BLIZZARD_CLIENT_SECRET environment variable not set")
+func init() {
+	sessionSecret := os.Getenv("SESSION_SECRET")
+	if sessionSecret == "" {
+		log.Fatal("SESSION_KEY environment variable not set")
 	}
-	return secret
+	sessionKey, err := hex.DecodeString(sessionSecret)
+	if err != nil {
+		log.Fatal("Error decoding SESSION_KEY: ", err)
+	}
+	if len(sessionKey) != 32 {
+		log.Fatal("SESSION_KEY must be 32 bytes (64 hex characters)")
+	}
+
+	// Initialize session store
+	store = sessions.NewCookieStore(sessionKey)
+	store.Options = &sessions.Options{
+		Path:     "/",
+		MaxAge:   3600, // 1 hour for OAuth flow
+		HttpOnly: true,
+		Secure:   false,                // False for local dev
+		SameSite: http.SameSiteLaxMode, // Allows OAuth redirects
+	}
+
+	bliz_secret := os.Getenv("BLIZZARD_CLIENT_SECRET")
+	bliz_public := os.Getenv("BLIZZARD_PUBLIC")
+
+	if bliz_public == "" || bliz_secret == "" {
+		log.Fatal("BATTLENET_KEY, BATTLENET_SECRET must be set.")
+	}
+
+	// Add these lines for debugging
+	log.Printf("SESSION_SECRET loaded: %t", os.Getenv("SESSION_SECRET") != "")
+	log.Printf("BLIZZARD_PUBLIC loaded: %t", os.Getenv("BLIZZARD_PUBLIC") != "")
+	log.Printf("BLIZZARD_CLIENT_SECRET loaded: %t", os.Getenv("BLIZZARD_CLIENT_SECRET") != "")
+
+	// 3. Configure gothic to use your store and session name.
+	gothic.Store = store
+
+	callbackURL := "http://localhost:8080/auth/callback/battlenet"
+
+	// Configure Gothic with Blizzard as the provider
+	goth.UseProviders(
+		battlenet.New(bliz_public, bliz_secret, callbackURL, "us"),
+	)
+	log.Println("Session store configured!")
 }
 
 func main() {
+
+	r := chi.NewRouter()
+
+	// Add middleware
+	r.Use(middleware.Logger)
+	r.Use(middleware.Recoverer)
+
 	// Connect to PostgreSQL
 	db, err := datab.Connect()
 	if err != nil {
@@ -51,54 +98,83 @@ func main() {
 
 	fmt.Println("Database setup completed successfully!")
 
-	// Generate a session secret of 32 bytes
-
-	if err != nil {
-		log.Fatalf("Error generating session secret: %v", err)
-	}
-
-	// Use a custom session store
-	gothic.Store = store
-
-	// Continue with your application setup
-	log.Println("Session store configured!")
-
-	// Configure Gothic with Blizzard as the provider
-	goth.UseProviders(
-		battlenet.New("a54315d3ec30453f9e58d1173caa05f6", getBlizzardSecret(), "http://192.168.1.234:8080/auth/callback/battlenet", "us"), // Adjust region as needed
-	)
-
-	r := chi.NewRouter()
-
-	// Add middleware
-	r.Use(middleware.Logger)
-	r.Use(middleware.Recoverer)
-	r.Use(middleware.Throttle(10)) // Allow 10 requests per second
-
-	r.Get("/auth/user", func(w http.ResponseWriter, r *http.Request) {
-		session, _ := store.Get(r, "auth-session")
-		user, ok := session.Values["User"]
-		if !ok {
-			http.Error(w, "No user", http.StatusUnauthorized)
+	r.Get("/auth/status", func(w http.ResponseWriter, r *http.Request) {
+		session, err := store.Get(r, "_gothic_session")
+		if err != nil {
+			log.Printf("Error getting session: %v", err)
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
-		if err := json.NewEncoder(w).Encode(&user); err != nil {
-			http.Error(w, "I'm hurting on Line 75", http.StatusInternalServerError)
+		if authenticated, ok := session.Values["authenticated"].(bool); !ok || !authenticated {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+		user := map[string]string{
+			"UserID":    session.Values["UserID"].(string),
+			"battletag": session.Values["battletag"].(string),
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(user); err != nil {
+			log.Printf("Error encoding response: %v", err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 			return
 		}
 	})
 
 	// Add authentication routes
 	r.Get("/auth/{provider}", func(w http.ResponseWriter, r *http.Request) {
-		provider := chi.URLParam(r, "provider")
-		r = r.WithContext(context.WithValue(r.Context(), "provider", provider))
-		log.Printf("Starting authentication for provider: %s", provider)
+		// This is a small trick to tell Goth which provider to use.
+		// It reads it from the context we set here.
+		providerName := chi.URLParam(r, "provider")
+		r = r.WithContext(context.WithValue(r.Context(), "provider", providerName))
+		log.Println("Starting auth for provider:", providerName)
+
+		// Create a new session
+		session := sessions.NewSession(store, "_gothic_session")
+		session.Options = &sessions.Options{
+			Path:     "/",
+			MaxAge:   3600,
+			HttpOnly: true,
+			Secure:   false,
+			SameSite: http.SameSiteLaxMode,
+		}
+		session.Values["test"] = "test-value"
+		err := session.Save(r, w)
+		if err != nil {
+			log.Printf("Error saving session: %v", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		log.Printf("Session initialized with test value: %v", session.Values["test"])
+		for _, cookie := range r.Cookies() {
+			log.Printf("Received cookie: %s = %s", cookie.Name, cookie.Value)
+		}
 		gothic.BeginAuthHandler(w, r)
 	})
 
 	r.Get("/auth/callback/{provider}", func(w http.ResponseWriter, r *http.Request) {
-		provider := chi.URLParam(r, "provider")
-		r = r.WithContext(context.WithValue(r.Context(), "provider", provider))
+		providerName := chi.URLParam(r, "provider")
+		r = r.WithContext(context.WithValue(r.Context(), "provider", providerName))
+		log.Println("Callback for provider:", providerName)
+
+		// Log cookies
+		for _, cookie := range r.Cookies() {
+			log.Printf("Received cookie: %s = %s", cookie.Name, cookie.Value)
+		}
+
+		session, err := store.Get(r, "_gothic_session")
+		if err != nil {
+			log.Printf("Session error: %v", err)
+		}
+		if testValue, ok := session.Values["test"]; ok {
+			log.Printf("Test value found in session: %v", testValue)
+		} else {
+			log.Println("Test value not found in session")
+		}
+		log.Printf("Session values: %v", session.Values)
+		log.Printf("Callback query params: %v", r.URL.Query())
+
+		// Complete user authentication and obtain user data
 		user, err := gothic.CompleteUserAuth(w, r)
 		if err != nil {
 			log.Printf("Error during callback for provider: %v", err)
@@ -106,30 +182,33 @@ func main() {
 			return
 		}
 
-		// Process user data from Blizzard and create/update account
-		// Process user data and get back both the userID AND teamID
-		dbUserID, dbTeamID, err := user_account.HandleBlizzardAuth(db, user)
+		// Process user data from Blizzard and create/update account and get back both the userID AND teamID
+		err = user_account.HandleBlizzardAuth(db, user)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("Failed to process user: %v", err), http.StatusInternalServerError)
 			return
 		}
 
-		// Store user in session
-		session, _ := store.Get(r, "auth-session")
-		session.Values["User"] = user       // Convert int to string
-		session.Values["UserID"] = dbUserID // Store userID
-		// *** ADD THE TEAM ID TO THE SESSION ***
-		if dbTeamID.Valid {
-			// Only store it if the user is on a team
-			session.Values["TeamID"] = dbTeamID.Int64
-		} else {
-			// If the user leaves a team, ensure the old value is removed
-			delete(session.Values, "TeamID")
+		session = sessions.NewSession(store, "_gothic_session")
+		session.Options = &sessions.Options{
+			Path:     "/",
+			MaxAge:   3600,
+			HttpOnly: true,
+			Secure:   false,
+			SameSite: http.SameSiteLaxMode,
 		}
-		session.Save(r, w)
+		session.Values["battletag"] = user.NickName
+		session.Values["UserID"] = user.UserID
+		session.Values["authenticated"] = true
+		err = session.Save(r, w)
+		if err != nil {
+			log.Printf("Error saving session: %v", err)
+			http.Error(w, fmt.Sprintf("Failed to save session: %v", err), http.StatusInternalServerError)
+			return
+		}
 
-		// Redirect user to profile page
-		http.Redirect(w, r, fmt.Sprintf("/profile/%s", user.UserID), http.StatusFound)
+		// Redirect user to loggedin page
+		http.Redirect(w, r, "/login", http.StatusFound)
 		log.Printf("Authentication successful for user: %v", user)
 	})
 
@@ -137,12 +216,15 @@ func main() {
 		http.ServeFile(w, r, "../static/Profile/login.html")
 	})
 
-	r.Get("/logout/{provider}", func(w http.ResponseWriter, r *http.Request) {
-		provider := chi.URLParam(r, "provider")
-		r = r.WithContext(context.WithValue(r.Context(), "provider", provider))
+	r.Get("/logout", func(w http.ResponseWriter, r *http.Request) {
+		session, _ := store.Get(r, gothic.SessionName)
+
+		// Set authenticated to false and clear user data.
+		session.Values["authenticated"] = false
+		session.Values["battletag"] = ""
+		session.Values["userID"] = ""
 		gothic.Logout(w, r)
-		w.Header().Set("Location", "/")
-		w.WriteHeader(http.StatusTemporaryRedirect)
+		http.Redirect(w, r, "/", http.StatusFound)
 	})
 
 	// Teams API
@@ -236,6 +318,13 @@ func main() {
 	})
 
 	r.Get("/teams", func(w http.ResponseWriter, r *http.Request) {
+		sessions, err := store.Get(r, "_gothic_session")
+		if err != nil {
+			log.Printf("Error getting session: %v", err)
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+		log.Printf("Teams route session values: %v", sessions.Values)
 		http.ServeFile(w, r, "../static/Teams/teams.html")
 	})
 
@@ -256,5 +345,6 @@ func main() {
 	})
 
 	// Start server
+	log.Println("Server starting on :8080")
 	http.ListenAndServe(":8080", r)
 }
