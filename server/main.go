@@ -24,11 +24,18 @@ import (
 	"github.com/markbates/goth"
 	"github.com/markbates/goth/gothic"
 	"github.com/markbates/goth/providers/battlenet"
+
+	"github.com/joho/godotenv"
 )
 
 var store *sessions.CookieStore
 
 func init() {
+	// Load .env file
+	err := godotenv.Load(".env")
+	if err != nil {
+		log.Println("Note: .env file not found, reading variables from environment")
+	}
 	sessionSecret := os.Getenv("SESSION_SECRET")
 	if sessionSecret == "" {
 		log.Fatal("SESSION_KEY environment variable not set")
@@ -99,7 +106,7 @@ func main() {
 	fmt.Println("Database setup completed successfully!")
 
 	r.Get("/auth/status", func(w http.ResponseWriter, r *http.Request) {
-		session, err := store.Get(r, "_gothic_session")
+		session, err := store.Get(r, "vivacity-session")
 		log.Printf("Auth status session values: %v", session.Values)
 		if err != nil {
 			log.Printf("Error getting session: %v", err)
@@ -132,58 +139,17 @@ func main() {
 		r = r.WithContext(context.WithValue(r.Context(), "provider", providerName))
 		log.Println("Starting auth for provider:", providerName)
 
-		// // Create a new session
-		// session := sessions.NewSession(store, "_gothic_session")
-		// session.Options = &sessions.Options{
-		// 	Path:     "/",
-		// 	MaxAge:   3600,
-		// 	HttpOnly: true,
-		// 	Secure:   false,
-		// 	SameSite: http.SameSiteLaxMode,
-		// }
-		// session.Values["test"] = "test-value"
-		// err := session.Save(r, w)
-		// if err != nil {
-		// 	log.Printf("Error saving session: %v", err)
-		// 	http.Error(w, err.Error(), http.StatusInternalServerError)
-		// 	return
-		// }
-		// log.Printf("Session initialized with test value: %v", session.Values["test"])
 		for _, cookie := range r.Cookies() {
 			log.Printf("Received cookie: %s = %s", cookie.Name, cookie.Value)
 		}
-		user, err := gothic.CompleteUserAuth(w, r)
-		if err == nil {
-			// User is already authenticated, no need to re-authenticate
-			log.Printf("User already authenticated: %v", user)
-			http.Redirect(w, r, fmt.Sprintf("/profile/%s", user.UserID), http.StatusFound)
-			return
-		} else {
-			gothic.BeginAuthHandler(w, r)
-		}
+
+		gothic.BeginAuthHandler(w, r)
 	})
 
 	r.Get("/auth/callback/{provider}", func(w http.ResponseWriter, r *http.Request) {
 		providerName := chi.URLParam(r, "provider")
 		r = r.WithContext(context.WithValue(r.Context(), "provider", providerName))
 		log.Println("Callback for provider:", providerName)
-
-		// Log cookies
-		for _, cookie := range r.Cookies() {
-			log.Printf("Received cookie: %s = %s", cookie.Name, cookie.Value)
-		}
-
-		// session, err := store.Get(r, "_gothic_session")
-		// if err != nil {
-		// 	log.Printf("Session error: %v", err)
-		// }
-		// if testValue, ok := session.Values["test"]; ok {
-		// 	log.Printf("Test value found in session: %v", testValue)
-		// } else {
-		// 	log.Println("Test value not found in session")
-		// }
-		// log.Printf("Session values: %v", session.Values)
-		// log.Printf("Callback query params: %v", r.URL.Query())
 
 		// Complete user authentication and obtain user data
 		user, err := gothic.CompleteUserAuth(w, r)
@@ -204,16 +170,17 @@ func main() {
 
 		log.Printf("User data processed for: %s", user.NickName)
 
-		session, err := store.Get(r, "_gothic_session")
+		// Get a new session for our application data
+		session, err := store.Get(r, "vivacity-session")
 		if err != nil {
-			log.Printf("Error getting session: %v", err)
-			http.Error(w, fmt.Sprintf("Failed to get session: %v", err), http.StatusInternalServerError)
-			return
+			session, _ = store.New(r, "vivacity-session")
 		}
 
 		session.Values["battletag"] = user.NickName
 		session.Values["UserID"] = user.UserID
 		session.Values["authenticated"] = true
+
+		log.Printf("Authentication successful for user: %v", user)
 
 		err = session.Save(r, w)
 		if err != nil {
@@ -221,10 +188,10 @@ func main() {
 			http.Error(w, fmt.Sprintf("Failed to save session: %v", err), http.StatusInternalServerError)
 			return
 		}
-		log.Printf("Authentication successful for user: %v", user)
+		log.Printf("Session saved with values: %v", session.Values)
+
 		// Redirect user to loggedin page
 		http.Redirect(w, r, fmt.Sprintf("/profile/%s", session.Values["UserID"]), http.StatusFound)
-
 	})
 
 	// r.Get("/login", func(w http.ResponseWriter, r *http.Request) { // Test route to verify login
@@ -251,28 +218,23 @@ func main() {
 	// })
 
 	r.Get("/logout", func(w http.ResponseWriter, r *http.Request) {
-		session, _ := store.Get(r, gothic.SessionName)
+		session, _ := store.Get(r, "vivacity-session")
 
-		// Set authenticated to false and clear user data.
+		// Clear the session values
 		session.Values["authenticated"] = false
 		session.Values["battletag"] = ""
-		session.Values["userID"] = ""
-		err := gothic.Logout(w, r)
-		w.Header().Set("Location", "/")
-		w.WriteHeader(http.StatusTemporaryRedirect)
-		if err != nil {
-			log.Printf("Error during logout: %v", err)
-			http.Error(w, "Error during logout", http.StatusInternalServerError)
-			return
-		}
-		err = session.Save(r, w)
+		session.Values["UserID"] = ""
+		session.Options.MaxAge = -1 // Expire the cookie immediately
+
+		// Save the session to commit the changes
+		err := session.Save(r, w)
 		if err != nil {
 			log.Printf("Error saving session during logout: %v", err)
 			http.Error(w, "Error saving session", http.StatusInternalServerError)
 			return
 		}
-		log.Println("User logged out successfully")
-		// Redirect to home page after logout
+
+		// Redirect to the home page
 		http.Redirect(w, r, "/", http.StatusFound)
 	})
 

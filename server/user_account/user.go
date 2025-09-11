@@ -31,6 +31,7 @@ func HandleBlizzardAuth(db *sql.DB, user goth.User) (err error) {
 		if err != nil {
 			return fmt.Errorf("failed to insert user: %v", err)
 		}
+		log.Printf("Created new user %s with internal ID: %d", user.NickName, user.UserID)
 	} else if err != nil {
 		return fmt.Errorf("failed to check user: %v", err)
 	} else {
@@ -42,7 +43,7 @@ func HandleBlizzardAuth(db *sql.DB, user goth.User) (err error) {
 
 func ProfileHandler(w http.ResponseWriter, r *http.Request, store *sessions.CookieStore, db *sql.DB) {
 	// Retrieve session
-	session, err := store.Get(r, "_gothic_session")
+	session, err := store.Get(r, "vivacity-session")
 	if err != nil {
 		log.Printf("Error retrieving session: %v", err)
 		http.Error(w, "Session error", http.StatusInternalServerError)
