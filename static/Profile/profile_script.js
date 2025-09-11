@@ -32,5 +32,5 @@ if (userID) {
 } else {
     console.log("User not logged in");
     // Optionally redirect to login page
-    window.location.href = "/login";
+    window.location.href = "/";
 }

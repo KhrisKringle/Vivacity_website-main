@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+
+	"github.com/go-chi/chi"
 )
 
 type AvailabilitySlot struct {
@@ -267,6 +269,7 @@ func PlayerHandler(db *sql.DB) http.HandlerFunc {
 			}
 			w.Header().Set("Content-Type", "application/json")
 			json.NewEncoder(w).Encode(map[string]string{"username": username})
+
 		case http.MethodDelete:
 			var req struct {
 				UserID int `json:"user_id"`
@@ -314,7 +317,7 @@ func TeamMembersHandler(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
-			teamIDStr := r.URL.Query().Get("team_id")
+			teamIDStr := chi.URLParam(r, "team_id")
 			if teamIDStr == "" {
 				http.Error(w, "Team ID is required", http.StatusBadRequest)
 				return
@@ -356,12 +359,14 @@ func TeamMembersHandler(db *sql.DB) http.HandlerFunc {
 			}
 			w.Header().Set("Content-Type", "application/json")
 			json.NewEncoder(w).Encode(members)
+
 		case http.MethodPost:
 			var req struct {
 				UserID int    `json:"user_id"`
 				TeamID int    `json:"team_id"`
 				Role   string `json:"role"`
 			}
+
 			// Decode the request body
 			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 				http.Error(w, "Invalid input", http.StatusBadRequest)
@@ -411,6 +416,7 @@ func TeamMembersHandler(db *sql.DB) http.HandlerFunc {
 				return
 			}
 			w.WriteHeader(http.StatusNoContent)
+
 		case http.MethodPut:
 			var req struct {
 				UserID int    `json:"user_id"`
@@ -466,6 +472,7 @@ func TimeSlotsHandler(db *sql.DB) http.HandlerFunc {
 			}
 			w.Header().Set("Content-Type", "application/json")
 			json.NewEncoder(w).Encode(slots)
+
 		case http.MethodPost:
 			var req struct {
 				Day    string `json:"day"`
@@ -486,6 +493,7 @@ func TimeSlotsHandler(db *sql.DB) http.HandlerFunc {
 				return
 			}
 			w.WriteHeader(http.StatusCreated)
+
 		case http.MethodDelete:
 			var req struct {
 				Day    string `json:"day"`
@@ -506,6 +514,7 @@ func TimeSlotsHandler(db *sql.DB) http.HandlerFunc {
 				return
 			}
 			w.WriteHeader(http.StatusNoContent)
+
 		case http.MethodPut:
 			var req struct {
 				Day     string `json:"day"`

@@ -47,30 +47,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Step 4: Check Authentication Status ---
     // This part runs independently to update the navigation buttons.
-    fetch('/auth/user')
-        .then(response => {
-            if (response.status === 401) {
-                // User is not logged in
-                document.getElementById('profileButton').classList.add('hidden');
-                document.getElementById('authButton').textContent = 'Login';
-                document.getElementById('authButton').href = '/login';
-            } else {
-                // User is logged in
-                return response.json().then(user => {
-                    document.getElementById('profileButton').href = `/profile/${user.UserID}`;
-                    document.getElementById('profileButton').classList.remove('hidden');
-                    document.getElementById('authButton').textContent = 'Logout';
-                    document.getElementById('authButton').href = '/logout/battlenet';
-                });
-            }
-        })
-        .catch(error => {
-            // Handle any errors during the auth check
-            console.error('Error checking auth status:', error);
-            document.getElementById('profileButton').classList.add('hidden');
-            document.getElementById('authButton').textContent = 'Login';
-            document.getElementById('authButton').href = '/login';
-        });
+    fetch('/auth/status')
+      .then(response => {
+        if (response.status === 401) {
+          document.getElementById('profileButton').classList.add('hidden');
+          document.getElementById('authButton').textContent = 'Login';
+          document.getElementById('authButton').href = '/auth/battlenet';
+        } else {
+          return response.json().then(user => {
+            document.getElementById('profileButton').href = `/profile/${user.UserID}`;
+            document.getElementById('profileButton').classList.remove('hidden');
+            document.getElementById('authButton').textContent = 'Logout';
+            document.getElementById('authButton').href = '/logout';
+          });
+        }
+      })
+      .catch(error => {
+        console.error('Error checking auth:', error);
+        document.getElementById('profileButton').classList.add('hidden');
+        document.getElementById('authButton').textContent = 'Login';
+        document.getElementById('authButton').href = '/auth/battlenet';
+      });
 });
 
 /**

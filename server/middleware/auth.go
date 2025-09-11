@@ -17,7 +17,7 @@ func SessionAuth(store *sessions.CookieStore) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// Get the session from the request.
-			session, err := store.Get(r, "auth-session")
+			session, err := store.Get(r, "_gothic_session")
 			if err != nil || session.IsNew {
 				http.Error(w, "Unauthorized: Please log in.", http.StatusUnauthorized)
 				return

@@ -100,12 +100,14 @@ func main() {
 
 	r.Get("/auth/status", func(w http.ResponseWriter, r *http.Request) {
 		session, err := store.Get(r, "_gothic_session")
+		log.Printf("Auth status session values: %v", session.Values)
 		if err != nil {
 			log.Printf("Error getting session: %v", err)
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
 		if authenticated, ok := session.Values["authenticated"].(bool); !ok || !authenticated {
+			log.Printf("User is not authorized: %v", err)
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
@@ -119,6 +121,7 @@ func main() {
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 			return
 		}
+		log.Printf("Auth status checked for user: %v", user)
 	})
 
 	// Add authentication routes
@@ -129,27 +132,35 @@ func main() {
 		r = r.WithContext(context.WithValue(r.Context(), "provider", providerName))
 		log.Println("Starting auth for provider:", providerName)
 
-		// Create a new session
-		session := sessions.NewSession(store, "_gothic_session")
-		session.Options = &sessions.Options{
-			Path:     "/",
-			MaxAge:   3600,
-			HttpOnly: true,
-			Secure:   false,
-			SameSite: http.SameSiteLaxMode,
-		}
-		session.Values["test"] = "test-value"
-		err := session.Save(r, w)
-		if err != nil {
-			log.Printf("Error saving session: %v", err)
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		log.Printf("Session initialized with test value: %v", session.Values["test"])
+		// // Create a new session
+		// session := sessions.NewSession(store, "_gothic_session")
+		// session.Options = &sessions.Options{
+		// 	Path:     "/",
+		// 	MaxAge:   3600,
+		// 	HttpOnly: true,
+		// 	Secure:   false,
+		// 	SameSite: http.SameSiteLaxMode,
+		// }
+		// session.Values["test"] = "test-value"
+		// err := session.Save(r, w)
+		// if err != nil {
+		// 	log.Printf("Error saving session: %v", err)
+		// 	http.Error(w, err.Error(), http.StatusInternalServerError)
+		// 	return
+		// }
+		// log.Printf("Session initialized with test value: %v", session.Values["test"])
 		for _, cookie := range r.Cookies() {
 			log.Printf("Received cookie: %s = %s", cookie.Name, cookie.Value)
 		}
-		gothic.BeginAuthHandler(w, r)
+		user, err := gothic.CompleteUserAuth(w, r)
+		if err == nil {
+			// User is already authenticated, no need to re-authenticate
+			log.Printf("User already authenticated: %v", user)
+			http.Redirect(w, r, fmt.Sprintf("/profile/%s", user.UserID), http.StatusFound)
+			return
+		} else {
+			gothic.BeginAuthHandler(w, r)
+		}
 	})
 
 	r.Get("/auth/callback/{provider}", func(w http.ResponseWriter, r *http.Request) {
@@ -162,17 +173,17 @@ func main() {
 			log.Printf("Received cookie: %s = %s", cookie.Name, cookie.Value)
 		}
 
-		session, err := store.Get(r, "_gothic_session")
-		if err != nil {
-			log.Printf("Session error: %v", err)
-		}
-		if testValue, ok := session.Values["test"]; ok {
-			log.Printf("Test value found in session: %v", testValue)
-		} else {
-			log.Println("Test value not found in session")
-		}
-		log.Printf("Session values: %v", session.Values)
-		log.Printf("Callback query params: %v", r.URL.Query())
+		// session, err := store.Get(r, "_gothic_session")
+		// if err != nil {
+		// 	log.Printf("Session error: %v", err)
+		// }
+		// if testValue, ok := session.Values["test"]; ok {
+		// 	log.Printf("Test value found in session: %v", testValue)
+		// } else {
+		// 	log.Println("Test value not found in session")
+		// }
+		// log.Printf("Session values: %v", session.Values)
+		// log.Printf("Callback query params: %v", r.URL.Query())
 
 		// Complete user authentication and obtain user data
 		user, err := gothic.CompleteUserAuth(w, r)
@@ -182,6 +193,8 @@ func main() {
 			return
 		}
 
+		log.Printf("USER AUTHENTICATED: %+v", user)
+
 		// Process user data from Blizzard and create/update account and get back both the userID AND teamID
 		err = user_account.HandleBlizzardAuth(db, user)
 		if err != nil {
@@ -189,32 +202,53 @@ func main() {
 			return
 		}
 
-		session = sessions.NewSession(store, "_gothic_session")
-		session.Options = &sessions.Options{
-			Path:     "/",
-			MaxAge:   3600,
-			HttpOnly: true,
-			Secure:   false,
-			SameSite: http.SameSiteLaxMode,
+		log.Printf("User data processed for: %s", user.NickName)
+
+		session, err := store.Get(r, "_gothic_session")
+		if err != nil {
+			log.Printf("Error getting session: %v", err)
+			http.Error(w, fmt.Sprintf("Failed to get session: %v", err), http.StatusInternalServerError)
+			return
 		}
+
 		session.Values["battletag"] = user.NickName
 		session.Values["UserID"] = user.UserID
 		session.Values["authenticated"] = true
+
 		err = session.Save(r, w)
 		if err != nil {
 			log.Printf("Error saving session: %v", err)
 			http.Error(w, fmt.Sprintf("Failed to save session: %v", err), http.StatusInternalServerError)
 			return
 		}
-
-		// Redirect user to loggedin page
-		http.Redirect(w, r, "/login", http.StatusFound)
 		log.Printf("Authentication successful for user: %v", user)
+		// Redirect user to loggedin page
+		http.Redirect(w, r, fmt.Sprintf("/profile/%s", session.Values["UserID"]), http.StatusFound)
+
 	})
 
-	r.Get("/login", func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, "../static/Profile/login.html")
-	})
+	// r.Get("/login", func(w http.ResponseWriter, r *http.Request) { // Test route to verify login
+
+	// 	// Log cookies
+	// 	for _, cookie := range r.Cookies() {
+	// 		log.Printf("Received cookie: %s = %s", cookie.Name, cookie.Value)
+	// 	}
+
+	// 	// Verify session
+	// 	session, err := store.Get(r, "_gothic_session")
+	// 	if err != nil {
+	// 		log.Printf("Error getting session: %v", err)
+	// 	}
+	// 	if authenticated, ok := session.Values["authenticated"].(bool); !ok || !authenticated {
+	// 		log.Printf("User Not Authorized on line 241: %v", err)
+	// 		log.Printf("Session values: %v", session.Values)
+	// 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+	// 		return
+	// 	}
+	// 	log.Printf("Login route session values: %v", session.Values)
+	// 	// Serve a simple logged-in page
+	// 	http.Redirect(w, r, fmt.Sprintf("/profile/%s", session.Values["UserID"]), http.StatusFound)
+	// })
 
 	r.Get("/logout", func(w http.ResponseWriter, r *http.Request) {
 		session, _ := store.Get(r, gothic.SessionName)
@@ -223,7 +257,22 @@ func main() {
 		session.Values["authenticated"] = false
 		session.Values["battletag"] = ""
 		session.Values["userID"] = ""
-		gothic.Logout(w, r)
+		err := gothic.Logout(w, r)
+		w.Header().Set("Location", "/")
+		w.WriteHeader(http.StatusTemporaryRedirect)
+		if err != nil {
+			log.Printf("Error during logout: %v", err)
+			http.Error(w, "Error during logout", http.StatusInternalServerError)
+			return
+		}
+		err = session.Save(r, w)
+		if err != nil {
+			log.Printf("Error saving session during logout: %v", err)
+			http.Error(w, "Error saving session", http.StatusInternalServerError)
+			return
+		}
+		log.Println("User logged out successfully")
+		// Redirect to home page after logout
 		http.Redirect(w, r, "/", http.StatusFound)
 	})
 

@@ -1,32 +1,220 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Team Schedule - Vivacity eSports</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/Scheduling_Page/scheduling_page.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Team Schedule & Availability</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            background-color: #1a202c;
+            color: #e2e8f0;
+            font-family: 'Orbitron', sans-serif;
+        }
+        .schedule-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem;
+            background-color: #2d3748;
+            border-radius: 0.5rem;
+            margin-bottom: 0.75rem;
+            border: 2px solid transparent;
+            cursor: pointer;
+            transition: border-color 0.3s, background-color 0.3s;
+        }
+        .schedule-item:hover {
+            background-color: #4a5568;
+        }
+        .schedule-item.selected {
+            border-color: #38b2ac; /* teal-400 */
+            background-color: #314155;
+        }
+        .weekday {
+            font-weight: bold;
+            font-size: 1.1rem;
+            color: #63b3ed; /* blue-400 */
+        }
+        .time {
+            font-size: 1rem;
+            color: #63b3ed; /* purple-400 */
+        }
+    </style>
 </head>
-<body class="min-h-screen flex flex-col items-center p-4">
-  <nav class="w-full max-w-6xl flex justify-between items-center mb-8">
-    <h1 class="text-4xl font-bold">Vivacity eSports</h1>
-    <div class="space-x-4">
-      <a href="/" class="nav-button">Home</a>
-      <a href="/teams" class="nav-button">Teams</a>
-    </div>
-  </nav>
+<body class="p-4 md:p-8">
 
-  <main class="w-full max-w-4xl text-center">
-    <h2 id="teamName" class="text-3xl font-bold mb-8">Loading Schedule...</h2>
-    <div id="scheduleContainer" class="space-y-4">
-      </div>
-  </main>
-
-  <div class="text-center mt-4">
-            <button id="submitAvailability" class="nav-button">Submit Availability</button>
+    <div class="max-w-4xl mx-auto">
+        <h1 id="teamName" class="text-3xl md:text-4xl font-bold text-orange-500 mb-8 text-center">Loading Schedule...</h1>
+        <div id="scheduleContainer" class="bg-gray-800 p-4 rounded-lg">
+            <p class="text-center text-gray-400">Loading...</p>
         </div>
+        <button id="submitAvailability" class="mt-6 w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg transition duration-300 shadow-lg">
+            Submit Availability
+        </button>
+    </div>
 
-  <script src="/static/Scheduling_Page/scheduling_page.js"></script>
+    <script>
+        /**
+         * Displays a non-blocking notification message at the bottom of the screen.
+         * @param {string} message - The message to display.
+         * @param {boolean} [isError=false] - If true, the notification will have an error style.
+         */
+        function showNotification(message, isError = false) {
+            const notification = document.createElement('div');
+            notification.textContent = message;
+            Object.assign(notification.style, {
+                position: 'fixed',
+                bottom: '20px',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                padding: '12px 24px',
+                borderRadius: '8px',
+                backgroundColor: isError ? '#c53030' : '#2f855a', // bg-red-700 or bg-green-700
+                color: 'white',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                zIndex: '1000',
+                transition: 'opacity 0.5s ease-in-out, bottom 0.5s ease-in-out',
+                opacity: '0',
+            });
+            
+            document.body.appendChild(notification);
+
+            // Animate in
+            setTimeout(() => {
+                notification.style.opacity = '1';
+                notification.style.bottom = '40px';
+            }, 10);
+
+            // Animate out and remove
+            setTimeout(() => {
+                notification.style.opacity = '0';
+                notification.style.bottom = '20px';
+                setTimeout(() => {
+                    document.body.removeChild(notification);
+                }, 500);
+            }, 3000);
+        }
+
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const params = new URLSearchParams(window.location.search);
+            const team_id = params.get('team_id');
+            const scheduleContainer = document.getElementById('scheduleContainer');
+            const submitButton = document.getElementById('submitAvailability');
+
+            let selectedTimeslots = [];
+
+            if (!team_id) {
+                document.getElementById('teamName').textContent = 'Error: No Team ID Provided';
+                scheduleContainer.innerHTML = '<p class="text-red-400 text-center">Please provide a team ID in the URL.</p>';
+                return;
+            }
+
+            // Fetch team name
+            fetch(`/api/teams/${team_id}`)
+                .then(response => response.ok ? response.json() : Promise.reject('Team not found'))
+                .then(teamData => {
+                    document.getElementById('teamName').textContent = `${teamData.name} Schedule`;
+                })
+                .catch(error => {
+                    console.error('Error fetching team name:', error);
+                    document.getElementById('teamName').textContent = 'Schedule Not Found';
+                });
+
+            // Fetch schedule data
+            fetch(`/api/teams/${team_id}/schedule`)
+                .then(response => response.ok ? response.json() : Promise.reject('Could not load schedule'))
+                .then(schedule => {
+                    scheduleContainer.innerHTML = ''; // Clear loading text
+
+                    if (schedule && schedule.length > 0) {
+                        schedule.forEach(item => {
+                            const scheduleItem = document.createElement('div');
+                            scheduleItem.className = 'schedule-item';
+
+                            // --- TIMEZONE CONVERSION ---
+                            // Create a Date object. Assumes the server sends a full ISO 8601 string (e.g., in UTC).
+                            // Example: "2024-09-18T19:00:00Z"
+                            const eventDate = new Date(item.time);
+                            let formattedTime;
+
+                            // Check if the date is valid. If not, display the original time string as a fallback.
+                            if (!isNaN(eventDate.getTime())) {
+                                formattedTime = eventDate.toLocaleTimeString([], {
+                                    hour: 'numeric',
+                                    minute: '2-digit',
+                                    timeZoneName: 'short'
+                                });
+                            } else {
+                                formattedTime = item.time; // Fallback for unexpected formats
+                                console.warn(`Could not parse this time for local conversion: ${item.time}`);
+                            }
+
+                            scheduleItem.innerHTML = `
+                                <div>
+                                    <p class="weekday">${item.weekday}</p>
+                                </div>
+                                <p class="time">${formattedTime}</p>
+                            `;
+
+                            scheduleItem.addEventListener('click', () => {
+                                scheduleItem.classList.toggle('selected');
+                                const timeSlot = { weekday: item.weekday, time: item.time }; // Send original UTC time back to server
+                                const index = selectedTimeslots.findIndex(slot => slot.weekday === timeSlot.weekday && slot.time === timeSlot.time);
+
+                                if (index > -1) {
+                                    selectedTimeslots.splice(index, 1);
+                                } else {
+                                    selectedTimeslots.push(timeSlot);
+                                }
+                                console.log('Selected Times (UTC):', selectedTimeslots);
+                            });
+
+                            scheduleContainer.appendChild(scheduleItem);
+                        });
+                    } else {
+                        scheduleContainer.innerHTML = '<p class="text-center text-gray-400">No schedule has been set for this team yet.</p>';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching schedule:', error);
+                    scheduleContainer.innerHTML = `<p class="text-red-400 text-center">${error}</p>`;
+                });
+
+            // Event listener for the submit button
+            submitButton.addEventListener('click', () => {
+                if (selectedTimeslots.length === 0) {
+                    showNotification('Please select at least one timeslot.', true);
+                    return;
+                }
+
+                fetch(`/api/teams/${team_id}/availability`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        player_id: 'current_player_id', // This should be dynamically set
+                        selected_slots: selectedTimeslots
+                    })
+                })
+                .then(response => {
+                    if (!response.ok) return Promise.reject('Failed to submit availability.');
+                    return response.json();
+                })
+                .then(data => {
+                    showNotification('Availability submitted successfully!');
+                    console.log('Server response:', data);
+                    selectedTimeslots = [];
+                    document.querySelectorAll('.schedule-item.selected').forEach(card => {
+                        card.classList.remove('selected');
+                    });
+                })
+                .catch(error => {
+                    console.error('Error submitting availability:', error);
+                    showNotification(String(error), true);
+                });
+            });
+        });
+    </script>
 </body>
 </html>

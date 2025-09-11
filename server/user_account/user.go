@@ -6,7 +6,6 @@ import (
 	"log"
 	"net/http"
 	"strconv"
-	"text/template"
 
 	"github.com/go-chi/chi"
 	"github.com/gorilla/sessions"
@@ -34,6 +33,8 @@ func HandleBlizzardAuth(db *sql.DB, user goth.User) (err error) {
 		}
 	} else if err != nil {
 		return fmt.Errorf("failed to check user: %v", err)
+	} else {
+		log.Printf("User already exists with ID: %s", user.UserID)
 	}
 
 	return nil
@@ -41,7 +42,7 @@ func HandleBlizzardAuth(db *sql.DB, user goth.User) (err error) {
 
 func ProfileHandler(w http.ResponseWriter, r *http.Request, store *sessions.CookieStore, db *sql.DB) {
 	// Retrieve session
-	session, err := store.Get(r, "auth-session")
+	session, err := store.Get(r, "_gothic_session")
 	if err != nil {
 		log.Printf("Error retrieving session: %v", err)
 		http.Error(w, "Session error", http.StatusInternalServerError)
@@ -61,27 +62,27 @@ func ProfileHandler(w http.ResponseWriter, r *http.Request, store *sessions.Cook
 			if id, err := strconv.ParseInt(v, 10, 64); err == nil {
 				userID = id
 			} else {
-				log.Printf("Invalid UserID in session: %v", v)
-				http.Redirect(w, r, "/login", http.StatusFound)
+				log.Printf("Invalid UserID in session on line 65: %v", v)
+				http.Redirect(w, r, "/", http.StatusFound)
 				return
 			}
 		default:
-			log.Printf("Unsupported UserID type in session: %T", val)
-			http.Redirect(w, r, "/login", http.StatusFound)
+			log.Printf("Unsupported UserID type in session on line 70: %T", val)
+			http.Redirect(w, r, "/", http.StatusFound)
 			return
 		}
 	} else {
 		// Fallback to URL param
 		urlUserID := chi.URLParam(r, "UserID")
 		if urlUserID == "" {
-			log.Println("No UserID in session or URL")
-			http.Redirect(w, r, "/login", http.StatusFound)
+			log.Println("No UserID in session or URL on line 78")
+			http.Redirect(w, r, "/", http.StatusFound)
 			return
 		}
 		if id, err := strconv.ParseInt(urlUserID, 10, 64); err == nil {
 			userID = id
 		} else {
-			log.Printf("Invalid UserID in URL: %s", urlUserID)
+			log.Printf("Invalid UserID in URLline 85: %s", urlUserID)
 			http.Error(w, "Invalid user ID", http.StatusBadRequest)
 			return
 		}
@@ -105,15 +106,26 @@ func ProfileHandler(w http.ResponseWriter, r *http.Request, store *sessions.Cook
 	}
 	log.Printf("User data: Username=%s", u.Username)
 
-	// Render template
-	tmpl, err := template.ParseFiles("../static/Profile/profile.html")
-	if err != nil {
-		log.Printf("Template parsing error: %v", err)
-		http.Error(w, "Template error", http.StatusInternalServerError)
-		return
-	}
-	if err := tmpl.Execute(w, u); err != nil {
-		log.Printf("Template execution error: %v", err)
-		http.Error(w, "Template rendering error", http.StatusInternalServerError)
-	}
+	battletag := session.Values["battletag"].(string)
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	fmt.Fprintf(w, `
+		<!DOCTYPE html>
+		<html lang="en">
+		<head>
+			<meta charset="UTF-8">
+			<title>Profile Page</title>
+			<script src="https://cdn.tailwindcss.com"></script>
+		</head>
+		<body class="bg-gray-900 text-white flex items-center justify-center h-screen">
+			<div class="text-center">
+				<h1 class="text-4xl font-bold">Welcome, %s</h1>
+				<p class="text-xl mt-2">Your User ID is: %s</p>
+				<a href="/" class="mt-4 inline-block bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded">Home</a>
+			</div>
+		</body>
+		</html>
+	`, battletag, userID)
+
+	log.Printf("Successfully served profile page for user %s", userID)
 }
