@@ -28,11 +28,13 @@ func AvailabilityHandler(db *sql.DB) http.HandlerFunc {
 			userID := r.URL.Query().Get("user_id")
 			teamID := r.URL.Query().Get("team_id")
 			var count int
+			// Error Checking
 			err := db.QueryRow("SELECT COUNT(*) FROM team_members WHERE user_id = $1 AND team_id = $2", userID, teamID).Scan(&count)
 			if err != nil || count == 0 {
 				http.Error(w, "Unauthorized", http.StatusUnauthorized)
 				return
 			}
+			// This query is just wrong
 			rows, err := db.Query(`
 				SELECT t.weekday, t.time, a.available
 				FROM time_slots t
@@ -108,7 +110,7 @@ func TeamHandler(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
-			// Extract the team ID from the URL path, e.g., "/api/teams/1"
+			// Extract the team ID from the URL path, e.g., "/api/teams/1" (May not be a good idea)
 			teamIDStr := strings.TrimPrefix(r.URL.Path, "/api/teams/")
 			teamID, err := strconv.Atoi(teamIDStr)
 			if err != nil {
@@ -169,6 +171,7 @@ func TeamHandler(db *sql.DB) http.HandlerFunc {
 			var req struct {
 				Name string `json:"name"`
 			}
+			// ADD SOME ADMIN CHECKS FOR THIS POST
 			// Decode the request
 			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 				http.Error(w, "Invalid input", http.StatusBadRequest)
@@ -190,7 +193,7 @@ func TeamHandler(db *sql.DB) http.HandlerFunc {
 			var req struct {
 				TeamID int `json:"team_id"`
 			}
-
+			// ADD ADMIN CHECKS TO THIS DELETE
 			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 				http.Error(w, "Invalid input", http.StatusBadRequest)
 				return
@@ -215,6 +218,9 @@ func TeamHandler(db *sql.DB) http.HandlerFunc {
 				TeamID   int    `json:"team_id"`
 				TeamName string `json:"team_name"`
 			}
+
+			// ADD ADMIN CHECKS TO THIS PUT
+			
 			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 				http.Error(w, "Invalid input", http.StatusBadRequest)
 				return
