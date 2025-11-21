@@ -72,7 +72,13 @@ curl http://localhost:8080/api/teams
       "player_id": 1,
       "name": "John",
       "battletag": "John#1234",
-      "position": "Leader"
+      "position": "Tank"
+    },
+    {
+      "player_id": 2,
+      "name": Doe",
+      "battletag": "Doe#5678",
+      "position": "Support"
     }
   ]
 }
@@ -125,7 +131,7 @@ curl http://localhost:8080/api/teams/1/events
 
 ### `POST /api/players`
 
-**Description:** Create a player and assign to a team.
+**Description:** Create a player and assign to a team. PROBABLY WRONG
 
 **Request Body:**
 ```json
@@ -150,7 +156,7 @@ curl -X POST http://localhost:8080/api/players -d '{"team_id":1,"name":"John","b
 
 ### `GET /api/players`
 
-**Description:** List all players.
+**Description:** List all players. Probably will deperacate
 
 **Response:**
 ```json
@@ -183,7 +189,7 @@ curl http://localhost:8080/api/players
   "team_id": 1,
   "name": "John",
   "battletag": "John#1234",
-  "position": "Leader"
+  "position": "Tank"
 }
 ```
 
@@ -204,7 +210,7 @@ curl http://localhost:8080/api/players/1
   "team_id": 1,
   "name": "Johnny",
   "battletag": "Johnny#5678",
-  "position": "Member"
+  "position": "DPS"
 }
 ```
 
@@ -222,4 +228,4 @@ curl -X PUT http://localhost:8080/api/players/1 \
 ## Notes
 
 - Future features: Discord integration, email reminders.
-- Deployment assumes use of Docker and `.env` for secrets.
+- Deployment assumes use of Docker
