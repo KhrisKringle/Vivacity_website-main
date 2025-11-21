@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/go-chi/chi"
 	"github.com/gorilla/sessions"
 	"github.com/markbates/goth"
 )
@@ -31,11 +30,9 @@ func HandleBlizzardAuth(db *sql.DB, user goth.User) (err error) {
 		if err != nil {
 			return fmt.Errorf("failed to insert user: %v", err)
 		}
-		log.Printf("Created new user %s with internal ID: %d", user.NickName, user.UserID)
+		log.Printf("Created new user %s with internal ID: %s", user.NickName, user.UserID)
 	} else if err != nil {
 		return fmt.Errorf("failed to check user: %v", err)
-	} else {
-		log.Printf("User already exists with ID: %s", user.UserID)
 	}
 
 	return nil
@@ -63,28 +60,13 @@ func ProfileHandler(w http.ResponseWriter, r *http.Request, store *sessions.Cook
 			if id, err := strconv.ParseInt(v, 10, 64); err == nil {
 				userID = id
 			} else {
-				log.Printf("Invalid UserID in session on line 65: %v", v)
+				log.Printf("Invalid UserID in session on line 63: %v", v)
 				http.Redirect(w, r, "/", http.StatusFound)
 				return
 			}
 		default:
-			log.Printf("Unsupported UserID type in session on line 70: %T", val)
+			log.Printf("Unsupported UserID type in session on line 68: %T", val)
 			http.Redirect(w, r, "/", http.StatusFound)
-			return
-		}
-	} else {
-		// Fallback to URL param
-		urlUserID := chi.URLParam(r, "UserID")
-		if urlUserID == "" {
-			log.Println("No UserID in session or URL on line 78")
-			http.Redirect(w, r, "/", http.StatusFound)
-			return
-		}
-		if id, err := strconv.ParseInt(urlUserID, 10, 64); err == nil {
-			userID = id
-		} else {
-			log.Printf("Invalid UserID in URLline 85: %s", urlUserID)
-			http.Error(w, "Invalid user ID", http.StatusBadRequest)
 			return
 		}
 	}
@@ -107,8 +89,49 @@ func ProfileHandler(w http.ResponseWriter, r *http.Request, store *sessions.Cook
 	}
 	log.Printf("User data: Username=%s", u.Username)
 
-	battletag := session.Values["battletag"].(string)
+	var teamName string
+	var battletag string
+	var TeamID int
+	if u.Team == "" {
+		TeamID = 0
+		log.Printf("User %s is not assigned to any team", u.Username)
+		log.Printf("You are not assigned to any team. Please contact an administrator.")
+	} else {
+		TeamID, err = strconv.Atoi(u.Team)
+		if err != nil {
+			log.Printf("Invalid team ID: %v", err)
+			http.Error(w, "Invalid team ID", http.StatusInternalServerError)
+			return
+		}
+	}
 
+	if TeamID == 0 {
+		session.Values["TeamID"] = 0
+		session.Values["TeamName"] = "No Team Assigned"
+		battletag = session.Values["battletag"].(string)
+		err = session.Save(r, w)
+		if err != nil {
+			log.Printf("Error saving session: %v", err)
+			http.Error(w, "Session save error", http.StatusInternalServerError)
+			return
+		}
+	} else {
+		err = db.QueryRow("SELECT name FROM teams WHERE id = $1", TeamID).Scan(&teamName)
+		if err != nil {
+			log.Printf("Database error fetching team name: %v", err)
+			http.Error(w, "Database error", http.StatusInternalServerError)
+			return
+		}
+		session.Values["TeamID"] = TeamID
+		session.Values["TeamName"] = teamName
+		battletag = session.Values["battletag"].(string)
+		err = session.Save(r, w)
+		if err != nil {
+			log.Printf("Error saving session: %v", err)
+			http.Error(w, "Session save error", http.StatusInternalServerError)
+			return
+		}
+	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	fmt.Fprintf(w, `
 		<!DOCTYPE html>
@@ -121,12 +144,12 @@ func ProfileHandler(w http.ResponseWriter, r *http.Request, store *sessions.Cook
 		<body class="bg-gray-900 text-white flex items-center justify-center h-screen">
 			<div class="text-center">
 				<h1 class="text-4xl font-bold">Welcome, %s</h1>
-				<p class="text-xl mt-2">Your User ID is: %s</p>
+				<p class="text-xl mt-2">Your Team is: %s</p>
 				<a href="/" class="mt-4 inline-block bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded">Home</a>
 			</div>
 		</body>
 		</html>
-	`, battletag, userID)
+	`, battletag, session.Values["TeamName"])
 
 	log.Printf("Successfully served profile page for user %s", userID)
 }

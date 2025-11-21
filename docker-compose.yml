@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   db:
     image: postgres:latest
@@ -16,7 +14,9 @@ services:
       - mynetwork
 
   web:
-    build: .
+    build:
+      context: .
+      dockerfile: server/Dockerfile # <-- Corrected path to the Dockerfile
     ports:
       - "8080:8080"
     depends_on:
