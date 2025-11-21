@@ -76,7 +76,7 @@ curl http://localhost:8080/api/teams
     },
     {
       "player_id": 2,
-      "name": Doe",
+      "name": "Doe",
       "battletag": "Doe#5678",
       "position": "Support"
     }
