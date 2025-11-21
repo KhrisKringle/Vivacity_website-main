@@ -120,8 +120,17 @@ func main() {
 		}
 		user := map[string]string{
 			"UserID":    session.Values["UserID"].(string),
+			"TeamID": session.Values["TeamID"].(int8),
 			"battletag": session.Values["battletag"].(string),
+			"role": session.Values["role"].(int8),
 		}
+
+		err = session.Save(r, w)
+		if err != nil {
+    		http.Error(w, "Failed to save session", http.StatusInternalServerError)
+    		return
+		}
+		
 		w.Header().Set("Content-Type", "application/json")
 		if err := json.NewEncoder(w).Encode(user); err != nil {
 			log.Printf("Error encoding response: %v", err)
@@ -178,7 +187,9 @@ func main() {
 
 		session.Values["battletag"] = user.NickName
 		session.Values["UserID"] = user.UserID
+		session.Values["TeamID"] = user.TeamID
 		session.Values["authenticated"] = true
+		session.Values["role"] = user.role
 
 		log.Printf("Authentication successful for user: %v", user)
 
@@ -224,6 +235,7 @@ func main() {
 		session.Values["authenticated"] = false
 		session.Values["battletag"] = ""
 		session.Values["UserID"] = ""
+		session.Values["TeamID"] = 0
 		session.Options.MaxAge = -1 // Expire the cookie immediately
 
 		// Save the session to commit the changes
@@ -329,6 +341,7 @@ func main() {
 	})
 
 	r.Get("/teams", func(w http.ResponseWriter, r *http.Request) {
+		// Think about this it maybe wrong
 		sessions, err := store.Get(r, "vivacity_session")
 		if err != nil {
 			log.Printf("Error getting session: %v", err)
