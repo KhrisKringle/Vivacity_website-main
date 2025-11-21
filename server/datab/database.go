@@ -84,6 +84,7 @@ func SetupDB(db *sql.DB) error {
 	_, err = db.Exec(`
 		CREATE TABLE IF NOT EXISTS availability (
 			user_id INT NOT NULL,
+			team_id INT NOT NULL,
 			slot_id INT NOT NULL,
 			available BOOLEAN NOT NULL DEFAULT FALSE,
 			PRIMARY KEY (user_id, slot_id),

@@ -73,7 +73,7 @@ func init() {
 	// 3. Configure gothic to use your store and session name.
 	gothic.Store = store
 
-	callbackURL := "http://localhost:8080/auth/callback/battlenet"
+	callbackURL := "http://192.168.1.234:8080/auth/callback/battlenet"
 
 	// Configure Gothic with Blizzard as the provider
 	goth.UseProviders(
@@ -329,7 +329,7 @@ func main() {
 	})
 
 	r.Get("/teams", func(w http.ResponseWriter, r *http.Request) {
-		sessions, err := store.Get(r, "_gothic_session")
+		sessions, err := store.Get(r, "vivacity_session")
 		if err != nil {
 			log.Printf("Error getting session: %v", err)
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)

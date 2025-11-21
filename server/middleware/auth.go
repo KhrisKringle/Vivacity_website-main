@@ -47,3 +47,8 @@ func GetTeamIDFromContext(ctx context.Context) (int64, bool) {
 	teamID, ok := ctx.Value("TeamID").(int64)
 	return teamID, ok
 }
+
+func GetRoleFromContext(ctx context.Context) (string, bool) {
+	role, ok := ctx.Value("Role").(string)
+	return role, ok
+}
